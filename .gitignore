@@ -1,0 +1,9 @@
+/dist/
+/.env
+/.env.*
+/secrets/
+/backups/
+/*.key
+/*.sqlite*
+credentials.txt
+*.log

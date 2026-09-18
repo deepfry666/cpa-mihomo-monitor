@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN" data-page="mihomo-monitor">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mihomo 监控</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-soft: #f7f8fa;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e3e7ee;
+      --accent: #4f6ef7;
+      --accent-soft: #edf1ff;
+      --good: #178a55;
+      --good-soft: #e8f7ef;
+      --warn: #b56a09;
+      --warn-soft: #fff4df;
+      --bad: #c9363e;
+      --bad-soft: #ffeaec;
+      --shadow: 0 8px 28px rgba(23, 32, 51, .07);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="white"]) {
+        --bg: #0f1116;
+        --panel: #171a21;
+        --panel-soft: #1c2029;
+        --text: #edf0f7;
+        --muted: #9aa3b4;
+        --line: #2a303c;
+        --accent: #8da0ff;
+        --accent-soft: #222a4d;
+        --good: #55d795;
+        --good-soft: #153c2b;
+        --warn: #f3ba63;
+        --warn-soft: #453316;
+        --bad: #ff7b82;
+        --bad-soft: #461f25;
+        --shadow: none;
+      }
+    }
+    :root[data-theme="white"] { color-scheme: light; }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0f1116;
+      --panel: #171a21;
+      --panel-soft: #1c2029;
+      --text: #edf0f7;
+      --muted: #9aa3b4;
+      --line: #2a303c;
+      --accent: #8da0ff;
+      --accent-soft: #222a4d;
+      --good: #55d795;
+      --good-soft: #153c2b;
+      --warn: #f3ba63;
+      --warn-soft: #453316;
+      --bad: #ff7b82;
+      --bad-soft: #461f25;
+      --shadow: none;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 300px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+    button, input, select { font: inherit; }
+    .page { width: min(1380px, 100%); margin: 0 auto; padding: 24px; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 25px; line-height: 1.2; }
+    .subtitle { margin: 7px 0 0; color: var(--muted); }
+    .actions { display: flex; align-items: center; gap: 10px; }
+    .refresh-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 14px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: var(--shadow);
+    }
+    .button:hover { border-color: var(--accent); }
+    .button:disabled { cursor: wait; opacity: .65; }
+    .summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .metric { min-height: 112px; padding: 17px; }
+    .metric-label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .metric-value { margin-top: 13px; font-size: 23px; font-weight: 800; letter-spacing: -.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .metric-note { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, var(--muted) 15%, transparent); }
+    .dot.ok { background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 18%, transparent); }
+    .dot.degraded { background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent); }
+    .dot.error { background: var(--bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 18%, transparent); }
+    .notice { display: none; margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+    .notice.show { display: block; }
+    .section { margin-top: 18px; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 2px 10px; }
+    .section h2 { margin: 0; font-size: 17px; letter-spacing: -.015em; }
+    .section-note { color: var(--muted); font-size: 12px; }
+    .group-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .group { padding: 16px; }
+    .group-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .group-name { min-width: 0; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { flex: 0 0 auto; border-radius: 999px; padding: 4px 8px; background: var(--panel-soft); color: var(--muted); font-size: 11px; font-weight: 800; }
+    .badge.ok { background: var(--good-soft); color: var(--good); }
+    .badge.warn { background: var(--warn-soft); color: var(--warn); }
+    .node { margin-top: 18px; font-size: 16px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .group-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .group-action { display: flex; gap: 8px; margin-top: 14px; }
+    .group-action select { min-width: 0; flex: 1; min-height: 38px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); }
+    .group-action .button { box-shadow: none; }
+    .group-feedback { margin: 9px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+    .group-feedback.error { color: var(--bad); }
+    .group-feedback.impact { color: var(--warn); }
+    .providers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .provider { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 16px; }
+    .provider strong { display: block; }
+    .provider small { display: block; margin-top: 5px; color: var(--muted); }
+    .provider-count { min-width: 58px; border-radius: 8px; padding: 8px 10px; background: var(--accent-soft); color: var(--accent); text-align: center; font-weight: 850; }
+    .empty { padding: 28px; color: var(--muted); text-align: center; }
+    .views { display: flex; gap: 24px; margin-top: 24px; border-bottom: 1px solid var(--line); }
+    .view-tab { min-height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; font-weight: 700; }
+    .view-tab[aria-selected="true"] { border-color: var(--accent); color: var(--text); }
+    .view[hidden], .detail-backdrop[hidden] { display: none; }
+    .list-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 16px 0 10px; }
+    .list-tools { display: flex; align-items: center; gap: 10px; }
+    .search { width: min(260px, 48vw); min-height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); }
+    .pagination { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .pagination .button { min-height: 32px; padding: 0 10px; box-shadow: none; }
+    .connections { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+    .connection-head, .connection-row { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(140px, 1.5fr) minmax(140px, 1fr) 100px; align-items: center; gap: 16px; width: 100%; text-align: left; }
+    .connection-head { padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; }
+    .connection-row { min-height: 74px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+    .connection-row:last-child { border-bottom: 0; }
+    .connection-row:hover, .connection-row:focus-visible { background: var(--panel-soft); outline-color: var(--accent); }
+    .connection-primary, .connection-route { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .connection-primary { display: block; font-weight: 750; }
+    .connection-secondary { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .connection-traffic { font-variant-numeric: tabular-nums; }
+    .connection-traffic span { display: block; }
+    .detail-backdrop { position: fixed; z-index: 30; inset: 0; display: flex; justify-content: flex-end; background: rgba(10, 18, 30, .46); }
+    .detail { width: min(540px, 100%); height: 100%; overflow-y: auto; padding: 24px; background: var(--panel); box-shadow: -16px 0 42px rgba(0, 0, 0, .16); }
+    .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .detail-header h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+    .detail-header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .detail-list { margin: 0; }
+    .detail-row { display: grid; grid-template-columns: 115px minmax(0, 1fr); gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+    .detail-row dt { color: var(--muted); }
+    .detail-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .detail-row small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .detail-ended { display: none; padding: 12px 0; color: var(--warn); }
+    .detail-ended.show { display: block; }
+    .auth {
+      display: none;
+      margin-top: 16px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .auth.show { display: block; }
+    .auth-row { display: flex; gap: 10px; margin-top: 12px; }
+    .auth input { min-width: 0; flex: 1; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--panel-soft); color: var(--text); }
+    .skeleton { position: relative; overflow: hidden; color: transparent !important; background: var(--panel-soft); border-radius: 7px; }
+    .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 8%, transparent), transparent); animation: shimmer 1.4s infinite; }
+    @keyframes shimmer { to { transform: translateX(100%); } }
+    @media (max-width: 1040px) { .summary { grid-template-columns: repeat(3, 1fr); } .group-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 680px) {
+      .page { padding: 16px; }
+      .topbar { display: block; }
+      .actions { margin-top: 14px; justify-content: space-between; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      .group-grid, .providers { grid-template-columns: 1fr; }
+      .auth-row { display: grid; }
+      .list-toolbar { align-items: stretch; }
+      .list-tools { width: 100%; flex-wrap: wrap; justify-content: space-between; }
+      .search { flex: 1 1 160px; width: auto; }
+      .connection-head { display: none; }
+      .connection-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; }
+      .connection-route { grid-column: 1 / -1; grid-row: 2; color: var(--muted); font-size: 12px; }
+      .connection-traffic { grid-column: 1; grid-row: 3; display: flex; gap: 12px; color: var(--muted); font-size: 12px; }
+      .connection-age { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 12px; }
+      .detail { padding: 18px; }
+      .detail-row { grid-template-columns: 90px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <h1>Mihomo 监控</h1>
+      </div>
+      <div class="actions">
+        <span class="refresh-meta" id="refreshMeta">等待首次刷新</span>
+        <button class="button" id="logoutButton" type="button" hidden>退出</button>
+        <button class="button" id="refreshButton" type="button">立即刷新</button>
+      </div>
+    </header>
+
+    <section class="summary" aria-label="运行摘要">
+      <article class="card metric"><div class="metric-label"><span class="dot" id="statusDot"></span>Controller</div><div class="metric-value skeleton" id="statusValue">读取中</div><div class="metric-note" id="statusNote">连接 Mihomo</div></article>
+      <article class="card metric"><div class="metric-label">活动连接</div><div class="metric-value skeleton" id="connectionsValue">0</div><div class="metric-note">当前连接数量</div></article>
+      <article class="card metric"><div class="metric-label">下载速度</div><div class="metric-value skeleton" id="downloadValue">0 B/s</div><div class="metric-note" id="downloadTotal">累计 0 B</div></article>
+      <article class="card metric"><div class="metric-label">上传速度</div><div class="metric-value skeleton" id="uploadValue">0 B/s</div><div class="metric-note" id="uploadTotal">累计 0 B</div></article>
+      <article class="card metric"><div class="metric-label">Controller 延迟</div><div class="metric-value skeleton" id="latencyValue">0 ms</div><div class="metric-note">一次完整采集</div></article>
+    </section>
+
+    <div class="notice" id="notice" role="status"></div>
+    <section class="auth" id="authPanel">
+      <strong>登录 Mihomo Monitor</strong>
+      <div class="section-note" style="margin-top:5px">管理密钥只用于建立 12 小时会话，浏览器不会保存明文密钥。</div>
+      <div class="auth-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="输入 Mihomo Monitor 管理密钥"><button class="button" id="authButton" type="button">登录</button></div>
+    </section>
+
+    <nav class="views" role="tablist" aria-label="监控视图">
+      <button class="view-tab" type="button" role="tab" aria-selected="true" data-view="connectionsView">活动连接</button>
+      <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="groupsView">代理组</button>
+      <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="providersView">Providers</button>
+    </nav>
+
+    <section class="view" id="connectionsView" role="tabpanel">
+      <div class="list-toolbar"><strong id="connectionCount">活动连接</strong><div class="list-tools"><input class="search" id="connectionSearch" type="search" aria-label="搜索连接" placeholder="搜索主机、进程或链路"><div class="pagination"><button class="button" id="previousPage" type="button" aria-label="上一页">上一页</button><span id="pageInfo">1 / 1</span><button class="button" id="nextPage" type="button" aria-label="下一页">下一页</button></div></div></div>
+      <div class="connections"><div class="connection-head"><span>主机 / 进程</span><span>规则 / 链路</span><span>流量</span><span>连接时间</span></div><div id="connections"><div class="empty">正在读取连接…</div></div></div>
+    </section>
+
+    <section class="section view" id="groupsView" role="tabpanel" hidden>
+      <div class="section-head"><h2>代理组</h2><span class="section-note" id="groupCount">—</span></div>
+      <div class="group-grid" id="groups"><div class="card empty">正在读取代理组…</div></div>
+    </section>
+
+    <section class="section view" id="providersView" role="tabpanel" hidden>
+      <div class="section-head"><h2>Providers</h2></div>
+      <div class="providers" id="providers"><div class="card empty">正在读取 Provider…</div></div>
+    </section>
+
+    <div class="detail-backdrop" id="detailBackdrop" hidden>
+      <aside class="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <header class="detail-header"><div><h2 id="detailTitle">连接详情</h2><p id="detailSubtitle"></p></div><button class="button" id="detailClose" type="button">返回列表</button></header>
+        <div class="detail-ended" id="detailEnded">这条连接已结束，以下为最后一次采集数据。</div>
+        <dl class="detail-list">
+          <div class="detail-row"><dt>连接时间</dt><dd id="detailStart"></dd></div>
+          <div class="detail-row"><dt>主机 / 进程</dt><dd id="detailHost"></dd></div>
+          <div class="detail-row"><dt>规则 / 链路</dt><dd id="detailRoute"></dd></div>
+          <div class="detail-row"><dt>流量</dt><dd id="detailTraffic"></dd></div>
+          <div class="detail-row"><dt>流向</dt><dd id="detailFlow"></dd></div>
+        </dl>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      const SNAPSHOT_URL = '/mihomo-monitor/snapshot';
+      const SELECT_URL = '/mihomo-monitor/select';
+      const SESSION_URL = '/mihomo-monitor/session';
+      const state = { key: '', previous: null, timer: 0, controller: null, busy: false, needsAuth: false,
+        connections: [], connectionMetrics: null, rates: new Map(), page: 1, selected: null, connectionError: false,
+        groups: [], groupChoices: new Map(), groupFeedback: new Map(), applying: false, needsRefresh: false };
+      const PAGE_SIZE = 8;
+      const byId = (id) => document.getElementById(id);
+      const escapeHTML = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+      function formatBytes(value, suffix = '') {
+        let bytes = Math.max(0, Number(value) || 0);
+        const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+        let unit = 0;
+        while (bytes >= 1024 && unit < units.length - 1) { bytes /= 1024; unit += 1; }
+        const digits = bytes >= 100 || unit === 0 ? 0 : bytes >= 10 ? 1 : 2;
+        return `${bytes.toFixed(digits)} ${units[unit]}${suffix}`;
+      }
+
+      function setLoading(loading) {
+        byId('refreshButton').disabled = loading;
+        byId('refreshButton').textContent = loading ? '刷新中…' : '立即刷新';
+      }
+
+      function renderSummary(snapshot) {
+        const controller = snapshot.controller || {};
+        const traffic = snapshot.traffic || {};
+        const issues = Array.isArray(snapshot.issues) ? snapshot.issues : [];
+        const trafficReady = snapshot.status !== 'offline' && !issues.includes('连接统计读取失败');
+        const status = snapshot.status === 'ok' ? 'ok' : snapshot.status === 'offline' ? 'error' : 'degraded';
+        byId('statusDot').className = `dot ${status}`;
+        byId('statusValue').classList.remove('skeleton');
+        byId('statusValue').textContent = !controller.reachable ? '不可达' : status === 'ok' ? '运行正常' : '部分异常';
+        byId('statusNote').textContent = controller.version ? `Mihomo ${controller.version}` : '未读取到版本';
+        byId('connectionsValue').classList.remove('skeleton');
+        byId('connectionsValue').textContent = trafficReady ? Number(traffic.connections || 0).toLocaleString() : '—';
+        byId('latencyValue').classList.remove('skeleton');
+        byId('latencyValue').textContent = `${Number(controller.latency_ms || 0)} ms`;
+
+        const now = Date.parse(snapshot.observed_at) || Date.now();
+        let downloadRate = 0;
+        let uploadRate = 0;
+        if (state.previous) {
+          const seconds = Math.max(.2, (now - state.previous.time) / 1000);
+          downloadRate = Math.max(0, (Number(traffic.download_total || 0) - state.previous.download) / seconds);
+          uploadRate = Math.max(0, (Number(traffic.upload_total || 0) - state.previous.upload) / seconds);
+        }
+        state.previous = trafficReady ? { time: now, download: Number(traffic.download_total || 0), upload: Number(traffic.upload_total || 0) } : null;
+        byId('downloadValue').classList.remove('skeleton');
+        byId('uploadValue').classList.remove('skeleton');
+        byId('downloadValue').textContent = trafficReady ? formatBytes(downloadRate, '/s') : '—';
+        byId('uploadValue').textContent = trafficReady ? formatBytes(uploadRate, '/s') : '—';
+        byId('downloadTotal').textContent = trafficReady ? `累计 ${formatBytes(traffic.download_total)}` : '暂无数据';
+        byId('uploadTotal').textContent = trafficReady ? `累计 ${formatBytes(traffic.upload_total)}` : '暂无数据';
+        byId('refreshMeta').textContent = `更新于 ${new Date(now).toLocaleTimeString('zh-CN', { hour12: false })}`;
+
+        byId('notice').textContent = issues.join('；');
+        byId('notice').classList.toggle('show', issues.length > 0);
+      }
+
+      function renderGroups(groups) {
+        const list = Array.isArray(groups) ? groups : [];
+        state.groups = list;
+        byId('groupCount').textContent = `${list.length} 个运行组`;
+        if (!list.length) {
+          byId('groups').innerHTML = '<div class="card empty">未读取到代理组</div>';
+          return;
+        }
+        byId('groups').innerHTML = list.map((group) => {
+          const healthy = Boolean(group.alive) || group.now === 'DIRECT';
+          const delay = Number(group.delay_ms || 0);
+          const options = Array.isArray(group.all) ? group.all : [];
+          const draft = state.groupChoices.get(group.name);
+          const choice = options.includes(draft) ? draft : group.now;
+          const feedback = state.groupFeedback.get(group.name);
+          const impact = group.name === 'AI代理7891' ? '<p class="group-feedback impact">CPA 使用此代理组；切换会改变后续请求的出口。</p>' : '';
+          const action = group.selectable ? `<div class="group-action"><select aria-label="${escapeHTML(group.name)}的出口" data-group="${escapeHTML(group.name)}">${options.map((name) => `<option value="${escapeHTML(name)}" ${choice === name ? 'selected' : ''}>${escapeHTML(name)}</option>`).join('')}</select><button class="button group-apply" type="button" data-group="${escapeHTML(group.name)}" ${choice === group.now || state.applying ? 'disabled' : ''}>应用</button></div>` : `<p class="group-feedback">${options.length < 2 ? '仅一个出口' : '只读'}</p>`;
+          return `<article class="card group"><div class="group-top"><span class="group-name" title="${escapeHTML(group.name)}">${escapeHTML(group.name)}</span><span class="badge ${healthy ? 'ok' : 'warn'}">${healthy ? '可用' : '待检查'}</span></div><div class="node" title="${escapeHTML(group.now || '未选择')}">${escapeHTML(group.now || '未选择')}</div><div class="group-foot"><span>${escapeHTML(group.type || 'Group')}</span><span>${delay > 0 ? `${delay} ms` : '暂无延迟'}</span></div>${impact}${action}${feedback ? `<p class="group-feedback ${feedback.error ? 'error' : ''}" role="status">${escapeHTML(feedback.text)}</p>` : ''}</article>`;
+        }).join('');
+      }
+
+      async function applyGroup(groupName) {
+        const group = state.groups.find((item) => item.name === groupName);
+        const choice = state.groupChoices.get(groupName);
+        if (!group?.selectable || !group.all?.includes(choice) || choice === group.now || state.applying) return;
+        const impact = groupName === 'AI代理7891'
+          ? '这是 CPA 使用的代理组，切换会改变 CPA 后续请求的出口，并可能影响请求可用性。'
+          : '该组后续的新连接会使用所选出口。';
+        if (!window.confirm(`将 ${groupName} 从 ${group.now} 切换到 ${choice}？\n\n${impact}`)) return;
+        state.applying = true;
+        renderGroups(state.groups);
+        try {
+          const response = await fetch(SELECT_URL, {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: {
+              ...(state.key ? { Authorization: `Bearer ${state.key}` } : {}),
+              'Content-Type': 'application/json',
+              'X-Mihomo-Monitor-Request': '1',
+            },
+            body: JSON.stringify({ group: groupName, name: choice }),
+          });
+          if (!response.ok) throw new Error(response.status === 409 ? '候选项已变化，请刷新后重试。' : response.status === 401 ? '登录已失效，请重新输入管理员密钥。' : '切换失败，请刷新确认当前出口。');
+          state.groupChoices.delete(groupName);
+          state.groupFeedback.set(groupName, { text: '已提交，正在同步当前出口。' });
+        } catch (error) {
+          state.groupFeedback.set(groupName, { text: error.message || '切换失败，请刷新确认当前出口。', error: true });
+        } finally {
+          state.applying = false;
+          renderGroups(state.groups);
+          if (!state.busy) await refresh();
+        }
+      }
+
+      function renderProviders(providers) {
+        const list = Array.isArray(providers) ? providers : [];
+        if (!list.length) {
+          byId('providers').innerHTML = '<div class="card empty">未读取到 Provider</div>';
+          return;
+        }
+        byId('providers').innerHTML = list.map((provider) => `<article class="card provider"><div><strong>${escapeHTML(provider.name)}</strong><small>${escapeHTML(provider.vehicle_type || provider.type || 'Provider')}${provider.updated_at ? ` · ${escapeHTML(new Date(provider.updated_at).toLocaleString('zh-CN', { hour12: false }))}` : ''}</small></div><div class="provider-count">${Number(provider.proxy_count || 0)}<small>节点</small></div></article>`).join('');
+      }
+
+      function connectionRoute(connection) {
+        return Array.isArray(connection.chains) && connection.chains.length
+          ? connection.chains.join(' → ') : connection.rule || '未标记';
+      }
+
+      function connectionAge(start) {
+        const seconds = (Date.now() - Date.parse(start)) / 1000;
+        if (!Number.isFinite(seconds) || seconds < 0) return '—';
+        if (seconds < 60) return `${Math.floor(seconds)} 秒`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟`;
+        return `${Math.floor(seconds / 3600)} 小时`;
+      }
+
+      function renderDetail() {
+        if (!state.selected) return;
+        const connection = state.connections.find((item) => item.id === state.selected.id);
+        const current = connection || state.selected;
+        if (connection) state.selected = connection;
+        const rates = state.rates.get(current.id) || { download: 0, upload: 0 };
+        byId('detailEnded').classList.toggle('show', !connection);
+        byId('detailTitle').textContent = current.host || current.destination || '连接详情';
+        byId('detailSubtitle').textContent = current.network?.toUpperCase() || '连接';
+        byId('detailStart').textContent = current.start
+          ? `${new Date(current.start).toLocaleString('zh-CN', { hour12: false })} · ${connectionAge(current.start)}` : '未知';
+        byId('detailHost').innerHTML = `${escapeHTML(current.host || current.destination || '未知')}<small>${escapeHTML(current.process || '未识别进程')}</small>`;
+        byId('detailRoute').innerHTML = `${escapeHTML(current.rule || '未标记规则')}<small>${escapeHTML(connectionRoute(current))}</small>`;
+        byId('detailTraffic').innerHTML = `↓ ${formatBytes(rates.download, '/s')} · ↑ ${formatBytes(rates.upload, '/s')}<small>累计 ↓ ${formatBytes(current.download)} · ↑ ${formatBytes(current.upload)}</small>`;
+        byId('detailFlow').innerHTML = `${escapeHTML(current.source || '未知来源')}<small>→ ${escapeHTML(current.destination || '未知目标')}</small>`;
+      }
+
+      function renderConnections() {
+        const query = byId('connectionSearch').value.trim().toLocaleLowerCase();
+        const filtered = state.connections.filter((connection) =>
+          [connection.host, connection.process, connection.source, connection.destination, connection.rule, connectionRoute(connection)]
+            .some((value) => String(value || '').toLocaleLowerCase().includes(query)));
+        const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        state.page = Math.min(state.page, pages);
+        byId('pageInfo').textContent = `${state.page} / ${pages}`;
+        byId('previousPage').disabled = state.page === 1;
+        byId('nextPage').disabled = state.page === pages;
+        byId('connectionCount').textContent = `${filtered.length} 条活动连接${state.connections.length === 200 ? ' · 最多显示 200 条' : ''}`;
+        const page = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+        byId('connections').innerHTML = page.length ? page.map((connection) => {
+          const host = connection.host || connection.destination || '未知主机';
+          return `<button class="connection-row" type="button" data-id="${escapeHTML(connection.id)}" aria-label="查看 ${escapeHTML(host)} 的连接详情"><span><span class="connection-primary">${escapeHTML(host)}</span><span class="connection-secondary">${escapeHTML(connection.process || connection.source || connection.network || '连接')}</span></span><span class="connection-route" title="${escapeHTML(connectionRoute(connection))}">${escapeHTML(connectionRoute(connection))}</span><span class="connection-traffic"><span>↓ ${formatBytes(connection.download)}</span><span>↑ ${formatBytes(connection.upload)}</span></span><span class="connection-age">${connectionAge(connection.start)}</span></button>`;
+        }).join('') : `<div class="empty">${state.connectionError ? '连接统计暂不可用' : query ? '没有匹配的连接' : '当前没有活动连接'}</div>`;
+        renderDetail();
+      }
+
+      function updateConnections(snapshot) {
+        const list = Array.isArray(snapshot.connections) ? snapshot.connections : [];
+        const now = Date.parse(snapshot.observed_at) || Date.now();
+        const previous = state.connectionMetrics;
+        const seconds = previous ? (now - previous.time) / 1000 : 0;
+        state.rates = new Map(list.map((connection) => {
+          const old = previous?.byId.get(connection.id);
+          return [connection.id, {
+            download: old && seconds > 0 ? Math.max(0, (connection.download - old.download) / seconds) : 0,
+            upload: old && seconds > 0 ? Math.max(0, (connection.upload - old.upload) / seconds) : 0,
+          }];
+        }));
+        if (!previous || now > previous.time) {
+          state.connectionMetrics = { time: now, byId: new Map(list.map((item) => [item.id, item])) };
+        }
+        state.connectionError = snapshot.status === 'offline' || (snapshot.issues || []).includes('连接统计读取失败');
+        state.connections = state.connectionError ? [] : list;
+        renderConnections();
+      }
+
+      function showAuth(message) {
+        byId('authPanel').classList.add('show');
+        byId('logoutButton').hidden = true;
+        byId('notice').textContent = message || '需要登录才能读取监控数据。';
+        byId('notice').classList.add('show');
+      }
+
+      async function login(key, quiet = false) {
+        try {
+          const response = await fetch(SESSION_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+          });
+          if (!response.ok) throw new Error(response.status === 401 ? '管理密钥无效。' : '登录失败，请稍后重试。');
+          state.key = '';
+          state.needsAuth = false;
+          state.needsRefresh = state.busy;
+          byId('adminKey').value = '';
+          byId('authPanel').classList.remove('show');
+          await refresh();
+        } catch (error) {
+          if (!quiet) showAuth(error?.message || '登录失败，请稍后重试。');
+        }
+      }
+
+      async function refresh() {
+        if (document.hidden || state.busy) return;
+        state.controller = new AbortController();
+        state.busy = true;
+        const requestKey = state.key;
+        setLoading(true);
+        try {
+          const response = await fetch(SNAPSHOT_URL, {
+            credentials: 'same-origin',
+            headers: {
+              ...(requestKey ? { Authorization: `Bearer ${requestKey}` } : {}),
+              Accept: 'application/json',
+            },
+            cache: 'no-store',
+            signal: state.controller.signal,
+          });
+          if (response.status === 401 || response.status === 403) {
+            if (state.key !== requestKey) return;
+            state.key = '';
+            state.needsAuth = true;
+            showAuth('登录已失效，请重新输入 Mihomo Monitor 管理密钥。');
+            return;
+          }
+          if (!response.ok) throw new Error(`监控接口返回 HTTP ${response.status}`);
+          const snapshot = await response.json();
+          byId('authPanel').classList.remove('show');
+          byId('logoutButton').hidden = false;
+          renderSummary(snapshot);
+          updateConnections(snapshot);
+          if (!state.applying) renderGroups(snapshot.status === 'offline' ? [] : snapshot.groups);
+          renderProviders(snapshot.status === 'offline' ? [] : snapshot.providers);
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+          byId('statusDot').className = 'dot error';
+          byId('statusValue').classList.remove('skeleton');
+          byId('statusValue').textContent = '读取失败';
+          byId('notice').textContent = error?.message || '无法读取 Mihomo 运行状态';
+          byId('notice').classList.add('show');
+        } finally {
+          state.busy = false;
+          setLoading(false);
+          if (state.needsRefresh || state.key !== requestKey) {
+            state.needsRefresh = false;
+            queueMicrotask(refresh);
+          }
+        }
+      }
+
+      byId('refreshButton').addEventListener('click', refresh);
+      byId('groups').addEventListener('change', (event) => {
+        if (!event.target.matches('select[data-group]')) return;
+        state.groupChoices.set(event.target.dataset.group, event.target.value);
+        state.groupFeedback.delete(event.target.dataset.group);
+        renderGroups(state.groups);
+      });
+      byId('groups').addEventListener('click', (event) => {
+        const button = event.target.closest('.group-apply');
+        if (button) applyGroup(button.dataset.group);
+      });
+      document.querySelectorAll('.view-tab').forEach((tab) => tab.addEventListener('click', () => {
+        document.querySelectorAll('.view-tab').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+        document.querySelectorAll('.view').forEach((view) => { view.hidden = view.id !== tab.dataset.view; });
+      }));
+      byId('connectionSearch').addEventListener('input', () => { state.page = 1; renderConnections(); });
+      byId('previousPage').addEventListener('click', () => { state.page -= 1; renderConnections(); });
+      byId('nextPage').addEventListener('click', () => { state.page += 1; renderConnections(); });
+      byId('connections').addEventListener('click', (event) => {
+        const row = event.target.closest('.connection-row');
+        if (!row) return;
+        state.selected = state.connections.find((item) => item.id === row.dataset.id) || null;
+        if (!state.selected) return;
+        renderDetail();
+        byId('detailBackdrop').hidden = false;
+        byId('detailClose').focus();
+      });
+      const closeDetail = () => {
+        const selectedId = state.selected?.id;
+        byId('detailBackdrop').hidden = true;
+        state.selected = null;
+        [...byId('connections').querySelectorAll('.connection-row')]
+          .find((row) => row.dataset.id === selectedId)?.focus();
+      };
+      byId('detailClose').addEventListener('click', closeDetail);
+      byId('detailBackdrop').addEventListener('click', (event) => { if (event.target === byId('detailBackdrop')) closeDetail(); });
+      document.addEventListener('keydown', (event) => {
+        if (byId('detailBackdrop').hidden) return;
+        if (event.key === 'Escape') closeDetail();
+        if (event.key === 'Tab') { event.preventDefault(); byId('detailClose').focus(); }
+      });
+      byId('authButton').addEventListener('click', () => {
+        const key = byId('adminKey').value.trim();
+        if (!key) return;
+        login(key);
+      });
+      byId('adminKey').addEventListener('keydown', (event) => { if (event.key === 'Enter') byId('authButton').click(); });
+      byId('logoutButton').addEventListener('click', async () => {
+        await fetch(SESSION_URL, {
+          method: 'DELETE', credentials: 'same-origin', headers: { 'X-Mihomo-Monitor-Request': '1' },
+        });
+        state.key = '';
+        state.needsAuth = true;
+        location.reload();
+      });
+      window.addEventListener('message', (event) => {
+        if (event.origin !== location.origin || event.source !== window.parent) return;
+        if (event.data?.type !== 'mihomo-monitor-auth' || typeof event.data.key !== 'string') return;
+        if (event.data.theme === 'dark' || event.data.theme === 'white') {
+          document.documentElement.dataset.theme = event.data.theme;
+        } else {
+          delete document.documentElement.dataset.theme;
+        }
+        login(event.data.key, true);
+      });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+      state.timer = window.setInterval(refresh, 10000);
+      window.addEventListener('beforeunload', () => { clearInterval(state.timer); state.controller?.abort(); });
+      refresh();
+    })();
+  </script>
+</body>
+</html>
