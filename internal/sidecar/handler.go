@@ -19,8 +19,13 @@ import (
 )
 
 const (
-	snapshotTimeout = 4 * time.Second
-	cacheDuration   = 10 * time.Second
+	// A collection normally finishes in milliseconds; this budget exists so a
+	// slow controller plus one retry still fits inside a single poll cycle.
+	snapshotTimeout = 7 * time.Second
+	// cacheDuration only coalesces viewers that arrive at nearly the same
+	// moment. It has to stay well below the dashboard polling interval,
+	// otherwise a fixed-interval poll can serve a snapshot two intervals old.
+	cacheDuration   = 2 * time.Second
 	sessionDuration = 12 * time.Hour
 	sessionCookie   = "mihomo_monitor_session"
 )
@@ -29,11 +34,33 @@ type Handler struct {
 	adminKey   []byte
 	source     model.SnapshotSource
 	selectable map[string]bool
+	order      []string
+	sessionMu  sync.Mutex
+	sessions   map[string]time.Time
+
 	mu         sync.Mutex
 	cached     model.Snapshot
 	until      time.Time
-	sessionMu  sync.Mutex
-	sessions   map[string]time.Time
+	generation int
+	inflight   *collection
+}
+
+// collection is one shared Mihomo read. It belongs to the handler rather than
+// to the viewer that triggered it, so a canceled viewer cannot publish an
+// "offline" snapshot to everybody else, and a slow viewer cannot hold the lock
+// while other viewers wait.
+type collection struct {
+	done     chan struct{}
+	snapshot model.Snapshot
+	err      error
+	stale    bool
+}
+
+type selectResponse struct {
+	Status string `json:"status"`
+	Group  string `json:"group,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 type GroupSelector interface {
@@ -42,14 +69,18 @@ type GroupSelector interface {
 
 func NewHandler(adminKey []byte, source model.SnapshotSource, selectableGroups []string) *Handler {
 	selectable := make(map[string]bool)
+	order := make([]string, 0, len(selectableGroups))
 	for _, name := range selectableGroups {
 		if name = strings.TrimSpace(name); name != "" {
+			if !selectable[name] {
+				order = append(order, name)
+			}
 			selectable[name] = true
 		}
 	}
 	return &Handler{
 		adminKey: append([]byte(nil), adminKey...), source: source, selectable: selectable,
-		sessions: make(map[string]time.Time),
+		order: order, sessions: make(map[string]time.Time),
 	}
 }
 
@@ -96,25 +127,113 @@ func (h *Handler) snapshot(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if !time.Now().Before(h.until) {
-		ctx, cancel := context.WithTimeout(request.Context(), snapshotTimeout)
-		defer cancel()
-		snapshot, err := h.source.Snapshot(ctx)
-		if err != nil {
-			http.Error(writer, "mihomo snapshot unavailable", http.StatusBadGateway)
+	snapshot, err := h.load(request.Context())
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// The viewer went away. There is nothing to report and nothing
+			// that may be cached on their behalf.
 			return
+		}
+		http.Error(writer, "mihomo snapshot unavailable", http.StatusBadGateway)
+		return
+	}
+	age := time.Since(snapshot.ObservedAt).Milliseconds()
+	if age < 0 {
+		age = 0
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(writer).Encode(struct {
+		model.Snapshot
+		AgeMS int64 `json:"age_ms"`
+	}{Snapshot: snapshot, AgeMS: age})
+}
+
+// load returns a snapshot that is at most cacheDuration old. Concurrent viewers
+// share one collection; each viewer can still leave on its own context.
+func (h *Handler) load(ctx context.Context) (model.Snapshot, error) {
+	var (
+		snapshot model.Snapshot
+		err      error
+	)
+	for attempt := 0; attempt < 2; attempt++ {
+		h.mu.Lock()
+		if time.Now().Before(h.until) {
+			cached := h.cached
+			h.mu.Unlock()
+			return cached, nil
+		}
+		pending := h.inflight
+		if pending == nil {
+			pending = &collection{done: make(chan struct{})}
+			h.inflight = pending
+			go h.collect(pending, h.generation)
+		}
+		h.mu.Unlock()
+
+		select {
+		case <-pending.done:
+			snapshot, err = pending.snapshot, pending.err
+			if !pending.stale {
+				return snapshot, err
+			}
+		case <-ctx.Done():
+			return model.Snapshot{}, ctx.Err()
+		}
+	}
+	return snapshot, err
+}
+
+func (h *Handler) collect(pending *collection, generation int) {
+	// Closing the channel is what wakes the waiters, so it happens even if the
+	// source misbehaves. The handler never holds the lock while collecting.
+	defer func() {
+		h.mu.Lock()
+		if h.inflight == pending {
+			h.inflight = nil
+		}
+		h.mu.Unlock()
+		close(pending.done)
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), snapshotTimeout)
+	defer cancel()
+	snapshot, err := h.source.Snapshot(ctx)
+	if err == nil {
+		primary := ""
+		for _, name := range h.order {
+			if _, ok := h.selectable[name]; ok {
+				primary = name
+				break
+			}
 		}
 		for i := range snapshot.Groups {
 			group := &snapshot.Groups[i]
 			group.Selectable = h.selectable[group.Name] && strings.EqualFold(group.Type, "selector") && len(group.All) > 1
+			group.Primary = group.Selectable && group.Name == primary
 		}
+	}
+	h.mu.Lock()
+	pending.snapshot, pending.err = snapshot, err
+	switch {
+	case err != nil:
+	case h.generation != generation:
+		// A switch landed while this read was in flight, so the result no
+		// longer describes the current exit. Report it, do not cache it.
+		pending.stale = true
+	default:
 		h.cached = snapshot
 		h.until = time.Now().Add(cacheDuration)
 	}
-	writer.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(writer).Encode(h.cached)
+	h.mu.Unlock()
+}
+
+// invalidate drops the shared cache and marks any read that is already running
+// as stale. It runs before and after a switch, because a request that changes
+// state can change the answer even when its own response never comes back.
+func (h *Handler) invalidate() {
+	h.mu.Lock()
+	h.generation++
+	h.until = time.Time{}
+	h.mu.Unlock()
 }
 
 func (h *Handler) authorized(request *http.Request) bool {
@@ -229,19 +348,49 @@ func (h *Handler) selectGroup(writer http.ResponseWriter, request *http.Request)
 		http.Error(writer, "selection unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.invalidate()
 	ctx, cancel := context.WithTimeout(request.Context(), snapshotTimeout)
 	defer cancel()
-	if err := selector.SelectGroup(ctx, input.Group, input.Name); err != nil {
-		status := http.StatusBadGateway
-		if errors.Is(err, mihomo.ErrNotSelectable) || errors.Is(err, mihomo.ErrInvalidChoice) {
-			status = http.StatusConflict
-		}
-		http.Error(writer, "selection failed; refresh the group status", status)
+	err := selector.SelectGroup(ctx, input.Group, input.Name)
+	h.invalidate()
+	writer.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		writer.WriteHeader(selectFailureStatus(err))
+		_ = json.NewEncoder(writer).Encode(selectFailure(err, input.Group, input.Name))
 		return
 	}
-	h.until = time.Time{}
-	writer.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(writer).Encode(map[string]string{"group": input.Group, "name": input.Name})
+	_ = json.NewEncoder(writer).Encode(selectResponse{Status: "applied", Group: input.Group, Name: input.Name})
+}
+
+// selectFailureStatus separates "the controller refused this" from "we do not
+// know what happened". Only a refusal may be presented as a failure.
+func selectFailureStatus(err error) int {
+	if errors.Is(err, mihomo.ErrNotSelectable) || errors.Is(err, mihomo.ErrInvalidChoice) {
+		return http.StatusConflict
+	}
+	if status, ok := mihomo.ControllerStatus(err); ok && status >= 400 && status < 500 && status != http.StatusRequestTimeout &&
+		status != http.StatusTooManyRequests {
+		return http.StatusConflict
+	}
+	return http.StatusBadGateway
+}
+
+func selectFailure(err error, group, name string) selectResponse {
+	response := selectResponse{Group: group, Name: name}
+	switch {
+	case errors.Is(err, mihomo.ErrNotSelectable):
+		response.Status, response.Reason = "rejected", "group-not-selectable"
+	case errors.Is(err, mihomo.ErrInvalidChoice):
+		response.Status, response.Reason = "rejected", "choice-missing"
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		response.Status, response.Reason = "uncertain", "timeout"
+	default:
+		if status, ok := mihomo.ControllerStatus(err); ok && status >= 400 && status < 500 &&
+			status != http.StatusRequestTimeout && status != http.StatusTooManyRequests {
+			response.Status, response.Reason = "rejected", "controller-rejected"
+		} else {
+			response.Status, response.Reason = "uncertain", "no-response"
+		}
+	}
+	return response
 }

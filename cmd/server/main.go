@@ -57,7 +57,7 @@ func main() {
 	}
 	collector, err := mihomo.NewCollector(cfg.ControllerURL, cfg.Secret, &http.Client{
 		Transport: transport,
-		Timeout:   3 * time.Second,
+		Timeout:   4 * time.Second,
 	})
 	if err != nil {
 		log.Fatalf("create Mihomo collector: %v", err)

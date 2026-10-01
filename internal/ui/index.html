@@ -1,58 +1,49 @@
 <!doctype html>
 <html lang="zh-CN" data-page="mihomo-monitor">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Mihomo 监控</title>
-  <style>
-    :root {
-      color-scheme: light dark;
-      --bg: #f4f6f8;
-      --panel: #ffffff;
-      --panel-soft: #f7f8fa;
-      --text: #172033;
-      --muted: #667085;
-      --line: #e3e7ee;
-      --accent: #4f6ef7;
-      --accent-soft: #edf1ff;
-      --good: #178a55;
-      --good-soft: #e8f7ef;
-      --warn: #b56a09;
-      --warn-soft: #fff4df;
-      --bad: #c9363e;
-      --bad-soft: #ffeaec;
-      --shadow: 0 8px 28px rgba(23, 32, 51, .07);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="white"]) {
-        --bg: #0f1116;
-        --panel: #171a21;
-        --panel-soft: #1c2029;
-        --text: #edf0f7;
-        --muted: #9aa3b4;
-        --line: #2a303c;
-        --accent: #8da0ff;
-        --accent-soft: #222a4d;
-        --good: #55d795;
-        --good-soft: #153c2b;
-        --warn: #f3ba63;
-        --warn-soft: #453316;
-        --bad: #ff7b82;
-        --bad-soft: #461f25;
-        --shadow: none;
-      }
-    }
-    :root[data-theme="white"] { color-scheme: light; }
-    :root[data-theme="dark"] {
-      color-scheme: dark;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mihomo 监控</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --panel-soft: #f7f8fa;
+    --panel-sunken: #eceff5;
+    --text: #172033;
+    --muted: #5b6376;
+    --line: #e3e7ee;
+    --line-strong: #c8d0e0;
+    --accent: #3f5ae8;
+    --accent-soft: #edf1ff;
+    --accent-ink: #2b3fbd;
+    --on-accent: #ffffff;
+    --good: #0f7044;
+    --good-soft: #e8f7ef;
+    --warn: #8a5004;
+    --warn-soft: #fff4df;
+    --bad: #bc2f36;
+    --bad-soft: #ffeaec;
+    --shadow: 0 1px 2px rgba(23, 32, 51, .06), 0 10px 22px rgba(23, 32, 51, .05);
+    --radius: 8px;
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+    --z-sticky: 10; --z-backdrop: 30; --z-drawer: 31;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="white"]) {
       --bg: #0f1116;
       --panel: #171a21;
       --panel-soft: #1c2029;
+      --panel-sunken: #222732;
       --text: #edf0f7;
       --muted: #9aa3b4;
       --line: #2a303c;
+      --line-strong: #3a4354;
       --accent: #8da0ff;
       --accent-soft: #222a4d;
+      --accent-ink: #a9b8ff;
+      --on-accent: #0e1224;
       --good: #55d795;
       --good-soft: #153c2b;
       --warn: #f3ba63;
@@ -61,548 +52,1437 @@
       --bad-soft: #461f25;
       --shadow: none;
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-width: 300px;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 14px;
-    }
-    button, input, select { font: inherit; }
-    .page { width: min(1380px, 100%); margin: 0 auto; padding: 24px; }
-    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-    h1 { margin: 0; font-size: 25px; line-height: 1.2; }
-    .subtitle { margin: 7px 0 0; color: var(--muted); }
-    .actions { display: flex; align-items: center; gap: 10px; }
-    .refresh-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
-    .button {
-      min-height: 38px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0 14px;
-      background: var(--panel);
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 700;
-      box-shadow: var(--shadow);
-    }
-    .button:hover { border-color: var(--accent); }
-    .button:disabled { cursor: wait; opacity: .65; }
-    .summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-    .card {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-    .metric { min-height: 112px; padding: 17px; }
-    .metric-label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
-    .metric-value { margin-top: 13px; font-size: 23px; font-weight: 800; letter-spacing: -.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .metric-note { margin-top: 5px; color: var(--muted); font-size: 12px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, var(--muted) 15%, transparent); }
-    .dot.ok { background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 18%, transparent); }
-    .dot.degraded { background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent); }
-    .dot.error { background: var(--bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 18%, transparent); }
-    .notice { display: none; margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
-    .notice.show { display: block; }
-    .section { margin-top: 18px; }
-    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 2px 10px; }
-    .section h2 { margin: 0; font-size: 17px; letter-spacing: -.015em; }
-    .section-note { color: var(--muted); font-size: 12px; }
-    .group-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .group { padding: 16px; }
-    .group-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .group-name { min-width: 0; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .badge { flex: 0 0 auto; border-radius: 999px; padding: 4px 8px; background: var(--panel-soft); color: var(--muted); font-size: 11px; font-weight: 800; }
-    .badge.ok { background: var(--good-soft); color: var(--good); }
-    .badge.warn { background: var(--warn-soft); color: var(--warn); }
-    .node { margin-top: 18px; font-size: 16px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .group-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; }
-    .group-action { display: flex; gap: 8px; margin-top: 14px; }
-    .group-action select { min-width: 0; flex: 1; min-height: 38px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); }
-    .group-action .button { box-shadow: none; }
-    .group-feedback { margin: 9px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-    .group-feedback.error { color: var(--bad); }
-    .group-feedback.impact { color: var(--warn); }
-    .providers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .provider { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 16px; }
-    .provider strong { display: block; }
-    .provider small { display: block; margin-top: 5px; color: var(--muted); }
-    .provider-count { min-width: 58px; border-radius: 8px; padding: 8px 10px; background: var(--accent-soft); color: var(--accent); text-align: center; font-weight: 850; }
-    .empty { padding: 28px; color: var(--muted); text-align: center; }
-    .views { display: flex; gap: 24px; margin-top: 24px; border-bottom: 1px solid var(--line); }
-    .view-tab { min-height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; font-weight: 700; }
-    .view-tab[aria-selected="true"] { border-color: var(--accent); color: var(--text); }
-    .view[hidden], .detail-backdrop[hidden] { display: none; }
-    .list-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 16px 0 10px; }
-    .list-tools { display: flex; align-items: center; gap: 10px; }
-    .search { width: min(260px, 48vw); min-height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); }
-    .pagination { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
-    .pagination .button { min-height: 32px; padding: 0 10px; box-shadow: none; }
-    .connections { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
-    .connection-head, .connection-row { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(140px, 1.5fr) minmax(140px, 1fr) 100px; align-items: center; gap: 16px; width: 100%; text-align: left; }
-    .connection-head { padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; }
-    .connection-row { min-height: 74px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
-    .connection-row:last-child { border-bottom: 0; }
-    .connection-row:hover, .connection-row:focus-visible { background: var(--panel-soft); outline-color: var(--accent); }
-    .connection-primary, .connection-route { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .connection-primary { display: block; font-weight: 750; }
-    .connection-secondary { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .connection-traffic { font-variant-numeric: tabular-nums; }
-    .connection-traffic span { display: block; }
-    .detail-backdrop { position: fixed; z-index: 30; inset: 0; display: flex; justify-content: flex-end; background: rgba(10, 18, 30, .46); }
-    .detail { width: min(540px, 100%); height: 100%; overflow-y: auto; padding: 24px; background: var(--panel); box-shadow: -16px 0 42px rgba(0, 0, 0, .16); }
-    .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
-    .detail-header h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
-    .detail-header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
-    .detail-list { margin: 0; }
-    .detail-row { display: grid; grid-template-columns: 115px minmax(0, 1fr); gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
-    .detail-row dt { color: var(--muted); }
-    .detail-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-    .detail-row small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
-    .detail-ended { display: none; padding: 12px 0; color: var(--warn); }
-    .detail-ended.show { display: block; }
-    .auth {
-      display: none;
-      margin-top: 16px;
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-    }
-    .auth.show { display: block; }
-    .auth-row { display: flex; gap: 10px; margin-top: 12px; }
-    .auth input { min-width: 0; flex: 1; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--panel-soft); color: var(--text); }
-    .skeleton { position: relative; overflow: hidden; color: transparent !important; background: var(--panel-soft); border-radius: 7px; }
-    .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 8%, transparent), transparent); animation: shimmer 1.4s infinite; }
-    @keyframes shimmer { to { transform: translateX(100%); } }
-    @media (max-width: 1040px) { .summary { grid-template-columns: repeat(3, 1fr); } .group-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 680px) {
-      .page { padding: 16px; }
-      .topbar { display: block; }
-      .actions { margin-top: 14px; justify-content: space-between; }
-      .summary { grid-template-columns: repeat(2, 1fr); }
-      .group-grid, .providers { grid-template-columns: 1fr; }
-      .auth-row { display: grid; }
-      .list-toolbar { align-items: stretch; }
-      .list-tools { width: 100%; flex-wrap: wrap; justify-content: space-between; }
-      .search { flex: 1 1 160px; width: auto; }
-      .connection-head { display: none; }
-      .connection-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; }
-      .connection-route { grid-column: 1 / -1; grid-row: 2; color: var(--muted); font-size: 12px; }
-      .connection-traffic { grid-column: 1; grid-row: 3; display: flex; gap: 12px; color: var(--muted); font-size: 12px; }
-      .connection-age { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 12px; }
-      .detail { padding: 18px; }
-      .detail-row { grid-template-columns: 90px minmax(0, 1fr); }
-    }
-  </style>
+  }
+  :root[data-theme="white"] { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1116;
+    --panel: #171a21;
+    --panel-soft: #1c2029;
+    --panel-sunken: #222732;
+    --text: #edf0f7;
+    --muted: #9aa3b4;
+    --line: #2a303c;
+    --line-strong: #3a4354;
+    --accent: #8da0ff;
+    --accent-soft: #222a4d;
+    --accent-ink: #a9b8ff;
+    --on-accent: #0e1224;
+    --good: #55d795;
+    --good-soft: #153c2b;
+    --warn: #f3ba63;
+    --warn-soft: #453316;
+    --bad: #ff7b82;
+    --bad-soft: #461f25;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 300px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .button, .control, .view-tab, .connection-row, .search, .badge, .notice, .stat, .panel {
+    transition: background-color .16s ease-out, border-color .16s ease-out, color .16s ease-out;
+  }
+  .page { width: min(1380px, 100%); margin: 0 auto; padding: var(--sp-5); }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+  h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+  .status-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--muted); font-size: 13px; }
+  .status-line strong { color: var(--text); font-weight: 700; }
+  .dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--good); }
+  .dot.degraded { background: var(--warn); }
+  .dot.error { background: var(--bad); }
+  .actions { display: flex; align-items: center; gap: var(--sp-2); }
+  .refresh-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  .button {
+    min-height: 36px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0 var(--sp-3);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
+  .button:active:not(:disabled) { filter: brightness(.94); }
+  .button:disabled { cursor: not-allowed; opacity: .6; }
+  .button.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+  .button.primary:hover:not(:disabled) { border-color: var(--accent); color: var(--on-accent); filter: brightness(1.06); }
+  .button.subtle { border-color: transparent; background: var(--panel-soft); font-weight: 600; }
+  .button.subtle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .button.tiny { min-height: 30px; padding: 0 var(--sp-2); font-size: 12px; font-weight: 600; }
+
+  /* ---------- notices ---------- */
+  .notice { display: none; margin: 0 0 var(--sp-4); padding: var(--sp-3); border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); color: var(--warn); }
+  .notice.show { display: block; }
+  .notice.error { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+  .notice.ok { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+
+  /* ---------- auth ---------- */
+  .auth { display: none; max-width: 460px; margin: var(--sp-5) auto; padding: var(--sp-5); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
+  .auth.show { display: block; }
+  .auth h2 { margin: 0; font-size: 17px; }
+  .auth p { margin: var(--sp-2) 0 0; color: var(--muted); font-size: 12px; }
+  .auth label { display: block; margin-top: var(--sp-4); font-weight: 700; }
+  .auth input { width: 100%; min-height: 40px; margin-top: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 0 var(--sp-3); background: var(--panel-soft); }
+  .auth .button { width: 100%; margin-top: var(--sp-3); min-height: 40px; }
+  .auth-error { display: none; margin-top: var(--sp-3); color: var(--bad); }
+  .auth-error.show { display: block; }
+
+  /* ---------- exit panel ---------- */
+  .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
+  .exit { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); gap: var(--sp-5); padding: var(--sp-4); }
+  .eyebrow { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: 12px; font-weight: 700; }
+  .exit-name { margin: var(--sp-2) 0 0; font-size: 21px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+  .exit-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 0; color: var(--muted); font-size: 12px; }
+  .exit-chain { margin: var(--sp-2) 0 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .exit-chain code { font-family: inherit; color: var(--text); }
+  .exit-switch { align-self: start; display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); }
+  details.exit-switch { display: block; padding: 0; }
+  details.exit-switch > summary { display: flex; align-items: center; min-height: 44px; padding: 0 var(--sp-3); cursor: pointer; font-weight: 700; }
+  details.exit-switch > summary::marker { color: var(--muted); }
+  .exit-switch-body { display: grid; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-3); }
+  .exit-switch label { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .field { display: grid; gap: var(--sp-1); min-width: 0; }
+  .control { width: 100%; min-height: 38px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 var(--sp-2); background: var(--panel); min-width: 0; }
+  .impact { margin: 0; color: var(--warn); font-size: 12px; }
+  .feedback { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  .feedback.ok { color: var(--good); }
+  .feedback.warn { color: var(--warn); }
+  .feedback.error { color: var(--bad); }
+  .confirm-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; padding: var(--sp-2); border: 1px dashed var(--line-strong); border-radius: 7px; }
+  .confirm-row p { margin: 0; flex: 1 1 160px; font-size: 12px; }
+
+  /* ---------- stats ---------- */
+  .top { display: grid; gap: var(--sp-4); }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); margin: 0; padding: 0; }
+  .stat { display: grid; gap: 2px; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .stat dt { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .stat dd { margin: 0; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .stat dd small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 400; }
+
+  /* ---------- tabs + views ---------- */
+  .views { display: flex; gap: var(--sp-5); margin-top: var(--sp-5); border-bottom: 1px solid var(--line); }
+  .view-tab { min-height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; font-weight: 700; }
+  .view-tab[aria-selected="true"] { border-color: var(--accent); color: var(--text); }
+  .view { margin-top: var(--sp-4); }
+  .view[hidden] { display: none; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); margin: 0 2px var(--sp-3); }
+  .section-head h2 { margin: 0; font-size: 16px; }
+  .section-note { color: var(--muted); font-size: 12px; }
+
+  /* ---------- groups ---------- */
+  .group-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: var(--sp-3); }
+  .group { display: grid; gap: var(--sp-3); padding: var(--sp-4); align-content: start; }
+  .group.primary { grid-column: span 2; }
+  .group-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+  .group-name { min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
+  .group-exit { font-size: 15px; font-weight: 750; overflow-wrap: anywhere; }
+  .group-meta { display: flex; flex-wrap: wrap; gap: var(--sp-2); color: var(--muted); font-size: 12px; }
+  .badge { flex: 0 0 auto; border-radius: 999px; padding: var(--sp-1) var(--sp-2); background: var(--panel-sunken); color: var(--muted); font-size: 11px; font-weight: 800; }
+  .badge.ok { background: var(--good-soft); color: var(--good); }
+  .badge.bad { background: var(--bad-soft); color: var(--bad); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.info { background: var(--accent-soft); color: var(--accent-ink); }
+  .group-action { display: grid; gap: var(--sp-2); }
+  .empty { padding: var(--sp-5); color: var(--muted); text-align: center; }
+  .empty p { margin: 0; }
+
+  /* ---------- providers ---------- */
+  .providers { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--sp-3); }
+  .provider { padding: var(--sp-4); }
+  .provider-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+  .provider-meta { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--muted); font-size: 12px; }
+  .provider details { margin-top: var(--sp-3); }
+  .provider summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .node-list { margin: var(--sp-3) 0 0; padding: 0; list-style: none; max-height: 260px; overflow: auto; border-top: 1px solid var(--line); }
+  .node-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .node-list li:last-child { border-bottom: 0; }
+  .node-name { min-width: 0; overflow-wrap: anywhere; }
+  .node-value { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- connections ---------- */
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+  .list-tools { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+  .search { width: min(260px, 48vw); min-height: 38px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 var(--sp-3); background: var(--panel); }
+  .pagination { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: 12px; }
+  .connections { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+  .connection-head, .connection-row { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(160px, 1.4fr) minmax(120px, 1fr) 92px; align-items: center; gap: var(--sp-4); width: 100%; text-align: left; }
+  .connection-head { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; }
+  .connection-row { min-height: 68px; padding: var(--sp-3) var(--sp-4); border: 0; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+  .connection-row:last-child { border-bottom: 0; }
+  .connection-row:hover { background: var(--panel-soft); }
+  .connection-primary, .connection-route { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .connection-primary { display: block; font-weight: 750; }
+  .connection-secondary { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .connection-traffic { display: grid; gap: 2px; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .connection-age { color: var(--muted); font-size: 12px; }
+
+  /* ---------- detail drawer ---------- */
+  .detail-backdrop { position: fixed; z-index: var(--z-backdrop); inset: 0; display: flex; justify-content: flex-end; background: rgba(10, 18, 30, .46); }
+  .detail-backdrop[hidden] { display: none; }
+  .detail { z-index: var(--z-drawer); width: min(560px, 100%); height: 100%; overflow-y: auto; padding: var(--sp-5); background: var(--panel); box-shadow: -16px 0 42px rgba(0, 0, 0, .16); }
+  .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+  .detail-header h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+  .detail-header p { margin: var(--sp-1) 0 0; color: var(--muted); font-size: 12px; }
+  .detail-state { margin-top: var(--sp-3); padding: var(--sp-3); border-radius: var(--radius); background: var(--warn-soft); color: var(--warn); font-size: 12px; }
+  .detail-state[hidden] { display: none; }
+  .detail-list { margin: 0; }
+  .detail-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; padding: var(--sp-4) 0; border-bottom: 1px solid var(--line); }
+  .detail-row dt { color: var(--muted); }
+  .detail-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .detail-row dd small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+
+  @media (max-width: 1040px) {
+    .exit { grid-template-columns: minmax(0, 1fr); }
+    .group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .group.primary { grid-column: span 2; }
+  }
+  @media (max-width: 900px) {
+    .connection-head { display: none; }
+    .connection-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3); }
+    .connection-route { grid-column: 1 / -1; grid-row: 2; color: var(--muted); font-size: 12px; }
+    .connection-traffic { grid-column: 1 / -1; grid-row: 3; grid-auto-flow: column; justify-content: start; gap: var(--sp-3); color: var(--muted); }
+    .connection-age { grid-column: 2; grid-row: 1; text-align: right; }
+  }
+  @media (max-width: 680px) {
+    .page { padding: var(--sp-3); }
+    .topbar { margin-bottom: var(--sp-3); }
+    .topbar { display: block; }
+    .actions { margin-top: var(--sp-2); justify-content: space-between; flex-wrap: wrap; }
+    /* The switch control is a deliberate action, so on phones the exit and the
+       stats stay above it and the connection list begins within the first screen. */
+    .exit { display: contents; }
+    .exit-main { order: 1; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
+    .exit-main .exit-name { font-size: 18px; }
+    .exit-main .exit-meta .copy-node { display: none; }
+    /* One compact row keeps the exit, the traffic numbers and the connection
+       list on the same screen instead of stacking three rows of cards. */
+    .stats { order: 2; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+    .stat { padding: var(--sp-3) var(--sp-2); }
+    .stat dt { font-size: 11px; }
+    .stat dd { font-size: 15px; }
+    .stat dd small { display: none; }
+    .exit-switch { order: 3; }
+    .views { margin-top: var(--sp-4); }
+    .view { margin-top: var(--sp-3); }
+    .group-grid { grid-template-columns: minmax(0, 1fr); }
+    .group.primary { grid-column: span 1; }
+    .search { flex: 1 1 150px; width: auto; }
+    .list-tools { width: 100%; }
+    .detail { padding: var(--sp-4); }
+    .detail-row { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    .detail-row dd { text-align: left; }
+    .detail-row .copy { justify-self: start; }
+  }
+  @media (pointer: coarse) {
+    .button { min-height: 44px; }
+    .control { min-height: 44px; }
+    .button.tiny { min-height: 38px; }
+    .view-tab { min-height: 46px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
 </head>
 <body>
-  <main class="page">
-    <header class="topbar">
-      <div>
-        <h1>Mihomo 监控</h1>
-      </div>
-      <div class="actions">
-        <span class="refresh-meta" id="refreshMeta">等待首次刷新</span>
-        <button class="button" id="logoutButton" type="button" hidden>退出</button>
-        <button class="button" id="refreshButton" type="button">立即刷新</button>
-      </div>
-    </header>
+<main class="page">
+  <header class="topbar">
+    <div>
+      <h1>Mihomo 监控</h1>
+      <p class="status-line">
+        <span class="dot" id="statusDot"></span>
+        <strong id="statusValue">正在读取</strong>
+        <span id="statusNote"></span>
+        <span id="freshness"></span>
+      </p>
+    </div>
+    <div class="actions">
+      <span class="refresh-meta" id="refreshMeta">等待首次刷新</span>
+      <button class="button subtle" id="pauseButton" type="button" aria-pressed="false" hidden>暂停刷新</button>
+      <button class="button" id="logoutButton" type="button" hidden>退出</button>
+      <button class="button primary" id="refreshButton" type="button">立即刷新</button>
+    </div>
+  </header>
 
-    <section class="summary" aria-label="运行摘要">
-      <article class="card metric"><div class="metric-label"><span class="dot" id="statusDot"></span>Controller</div><div class="metric-value skeleton" id="statusValue">读取中</div><div class="metric-note" id="statusNote">连接 Mihomo</div></article>
-      <article class="card metric"><div class="metric-label">活动连接</div><div class="metric-value skeleton" id="connectionsValue">0</div><div class="metric-note">当前连接数量</div></article>
-      <article class="card metric"><div class="metric-label">下载速度</div><div class="metric-value skeleton" id="downloadValue">0 B/s</div><div class="metric-note" id="downloadTotal">累计 0 B</div></article>
-      <article class="card metric"><div class="metric-label">上传速度</div><div class="metric-value skeleton" id="uploadValue">0 B/s</div><div class="metric-note" id="uploadTotal">累计 0 B</div></article>
-      <article class="card metric"><div class="metric-label">Controller 延迟</div><div class="metric-value skeleton" id="latencyValue">0 ms</div><div class="metric-note">一次完整采集</div></article>
-    </section>
+  <div class="notice" id="notice" role="status" aria-live="polite"></div>
 
-    <div class="notice" id="notice" role="status"></div>
-    <section class="auth" id="authPanel">
-      <strong>登录 Mihomo Monitor</strong>
-      <div class="section-note" style="margin-top:5px">管理密钥只用于建立 12 小时会话，浏览器不会保存明文密钥。</div>
-      <div class="auth-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="输入 Mihomo Monitor 管理密钥"><button class="button" id="authButton" type="button">登录</button></div>
-    </section>
+  <section class="auth" id="authPanel" aria-labelledby="authTitle">
+    <h2 id="authTitle">登录 Mihomo Monitor</h2>
+    <p id="authHint">管理密钥只用于建立 12 小时会话，浏览器不会保存明文密钥。</p>
+    <form id="authForm" novalidate>
+      <label for="adminKey">管理密钥</label>
+      <input id="adminKey" name="adminKey" type="password" autocomplete="current-password" aria-describedby="authHint">
+      <button class="button primary" id="authButton" type="submit">登录</button>
+    </form>
+    <p class="auth-error" id="authError" role="alert"></p>
+  </section>
 
-    <nav class="views" role="tablist" aria-label="监控视图">
-      <button class="view-tab" type="button" role="tab" aria-selected="true" data-view="connectionsView">活动连接</button>
-      <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="groupsView">代理组</button>
-      <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="providersView">Providers</button>
+  <div id="dataRegion">
+    <div class="top">
+      <section class="panel exit" id="exitPanel" aria-label="当前出口">
+        <div class="exit-main"><span class="eyebrow">当前出口</span><p class="exit-name">正在读取…</p><p class="exit-meta">等待 Mihomo Controller 返回数据</p></div>
+      </section>
+      <dl class="stats" id="stats">
+        <div class="stat"><dt>下载速度</dt><dd>—<small>等待数据</small></dd></div>
+        <div class="stat"><dt>上传速度</dt><dd>—<small>等待数据</small></dd></div>
+        <div class="stat"><dt>活动连接</dt><dd>—<small>等待数据</small></dd></div>
+        <div class="stat"><dt>采集耗时</dt><dd>—<small>等待数据</small></dd></div>
+      </dl>
+    </div>
+
+    <nav class="views" role="tablist" aria-label="监控视图" id="viewTabs">
+      <button class="view-tab" type="button" role="tab" id="tab-connections" aria-controls="connectionsView" aria-selected="true" tabindex="0" data-view="connectionsView">活动连接</button>
+      <button class="view-tab" type="button" role="tab" id="tab-groups" aria-controls="groupsView" aria-selected="false" tabindex="-1" data-view="groupsView">代理组</button>
+      <button class="view-tab" type="button" role="tab" id="tab-providers" aria-controls="providersView" aria-selected="false" tabindex="-1" data-view="providersView">订阅信息</button>
     </nav>
 
-    <section class="view" id="connectionsView" role="tabpanel">
-      <div class="list-toolbar"><strong id="connectionCount">活动连接</strong><div class="list-tools"><input class="search" id="connectionSearch" type="search" aria-label="搜索连接" placeholder="搜索主机、进程或链路"><div class="pagination"><button class="button" id="previousPage" type="button" aria-label="上一页">上一页</button><span id="pageInfo">1 / 1</span><button class="button" id="nextPage" type="button" aria-label="下一页">下一页</button></div></div></div>
-      <div class="connections"><div class="connection-head"><span>主机 / 进程</span><span>规则 / 链路</span><span>流量</span><span>连接时间</span></div><div id="connections"><div class="empty">正在读取连接…</div></div></div>
+    <section class="view" id="connectionsView" role="tabpanel" aria-labelledby="tab-connections">
+      <div class="list-toolbar">
+        <strong id="connectionCount">活动连接</strong>
+        <div class="list-tools">
+          <label class="visually-hidden" for="connectionSearch">搜索连接</label>
+          <input class="search" id="connectionSearch" type="search" placeholder="搜索主机、进程或链路">
+          <label class="visually-hidden" for="connectionSort">排序方式</label>
+          <select class="control" id="connectionSort" style="width:auto">
+            <option value="recent">最近连接</option>
+            <option value="traffic">流量最多</option>
+            <option value="host">按主机名</option>
+          </select>
+          <div class="pagination">
+            <button class="button tiny" id="previousPage" type="button">上一页</button>
+            <span id="pageInfo">1 / 1</span>
+            <button class="button tiny" id="nextPage" type="button">下一页</button>
+          </div>
+        </div>
+      </div>
+      <div class="connections">
+        <div class="connection-head" aria-hidden="true"><span>主机 / 进程</span><span>规则 / 链路</span><span>流量</span><span>连接时间</span></div>
+        <div id="connections"><div class="empty"><p>正在读取连接…</p></div></div>
+      </div>
     </section>
 
-    <section class="section view" id="groupsView" role="tabpanel" hidden>
-      <div class="section-head"><h2>代理组</h2><span class="section-note" id="groupCount">—</span></div>
-      <div class="group-grid" id="groups"><div class="card empty">正在读取代理组…</div></div>
+    <section class="view" id="groupsView" role="tabpanel" aria-labelledby="tab-groups" hidden>
+      <div class="section-head"><h2>代理组</h2><span class="section-note" id="groupCount"></span></div>
+      <div class="group-grid" id="groups"><div class="panel empty"><p>正在读取代理组…</p></div></div>
     </section>
 
-    <section class="section view" id="providersView" role="tabpanel" hidden>
-      <div class="section-head"><h2>Providers</h2></div>
-      <div class="providers" id="providers"><div class="card empty">正在读取 Provider…</div></div>
+    <section class="view" id="providersView" role="tabpanel" aria-labelledby="tab-providers" hidden>
+      <div class="section-head"><h2>订阅信息</h2><span class="section-note" id="providerCount"></span></div>
+      <div class="providers" id="providers"><div class="panel empty"><p>正在读取订阅信息…</p></div></div>
     </section>
+  </div>
+</main>
 
-    <div class="detail-backdrop" id="detailBackdrop" hidden>
-      <aside class="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
-        <header class="detail-header"><div><h2 id="detailTitle">连接详情</h2><p id="detailSubtitle"></p></div><button class="button" id="detailClose" type="button">返回列表</button></header>
-        <div class="detail-ended" id="detailEnded">这条连接已结束，以下为最后一次采集数据。</div>
-        <dl class="detail-list">
-          <div class="detail-row"><dt>连接时间</dt><dd id="detailStart"></dd></div>
-          <div class="detail-row"><dt>主机 / 进程</dt><dd id="detailHost"></dd></div>
-          <div class="detail-row"><dt>规则 / 链路</dt><dd id="detailRoute"></dd></div>
-          <div class="detail-row"><dt>流量</dt><dd id="detailTraffic"></dd></div>
-          <div class="detail-row"><dt>流向</dt><dd id="detailFlow"></dd></div>
-        </dl>
-      </aside>
-    </div>
-  </main>
+<div class="detail-backdrop" id="detailBackdrop" hidden>
+  <aside class="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <header class="detail-header">
+      <div><h2 id="detailTitle">连接详情</h2><p id="detailSubtitle"></p></div>
+      <button class="button tiny" id="detailClose" type="button">返回列表</button>
+    </header>
+    <p class="detail-state" id="detailState" hidden></p>
+    <dl class="detail-list">
+      <div class="detail-row"><dt>连接时间</dt><dd id="detailStart"></dd></div>
+      <div class="detail-row"><dt>主机 / 进程</dt><dd id="detailHost"></dd><button class="button tiny copy" type="button" data-copy="host">复制</button></div>
+      <div class="detail-row"><dt>规则 / 链路</dt><dd id="detailRoute"></dd><button class="button tiny copy" type="button" data-copy="route">复制</button></div>
+      <div class="detail-row"><dt>流量</dt><dd id="detailTraffic"></dd><button class="button tiny copy" type="button" data-copy="traffic">复制</button></div>
+      <div class="detail-row"><dt>流向</dt><dd id="detailFlow"></dd><button class="button tiny copy" type="button" data-copy="flow">复制</button></div>
+    </dl>
+  </aside>
+</div>
 
-  <script>
-    (() => {
-      'use strict';
-      const SNAPSHOT_URL = '/mihomo-monitor/snapshot';
-      const SELECT_URL = '/mihomo-monitor/select';
-      const SESSION_URL = '/mihomo-monitor/session';
-      const state = { key: '', previous: null, timer: 0, controller: null, busy: false, needsAuth: false,
-        connections: [], connectionMetrics: null, rates: new Map(), page: 1, selected: null, connectionError: false,
-        groups: [], groupChoices: new Map(), groupFeedback: new Map(), applying: false, needsRefresh: false };
-      const PAGE_SIZE = 8;
-      const byId = (id) => document.getElementById(id);
-      const escapeHTML = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+<script>
+(() => {
+  'use strict';
 
-      function formatBytes(value, suffix = '') {
-        let bytes = Math.max(0, Number(value) || 0);
-        const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-        let unit = 0;
-        while (bytes >= 1024 && unit < units.length - 1) { bytes /= 1024; unit += 1; }
-        const digits = bytes >= 100 || unit === 0 ? 0 : bytes >= 10 ? 1 : 2;
-        return `${bytes.toFixed(digits)} ${units[unit]}${suffix}`;
-      }
+  const SNAPSHOT_URL = '/mihomo-monitor/snapshot';
+  const SELECT_URL = '/mihomo-monitor/select';
+  const SESSION_URL = '/mihomo-monitor/session';
+  const PAGE_SIZE = 8;
+  const POLL_INTERVAL_MS = 10000;
+  const REQUEST_TIMEOUT_MS = 12000;
+  const SWITCH_FILTER_THRESHOLD = 10;
 
-      function setLoading(loading) {
-        byId('refreshButton').disabled = loading;
-        byId('refreshButton').textContent = loading ? '刷新中…' : '立即刷新';
-      }
+  const HEALTH = {
+    ok: { text: '可用', tone: 'ok' },
+    down: { text: '异常', tone: 'bad' },
+    unknown: { text: '未检测', tone: 'warn' },
+  };
+  const STATUS_TEXT = { offline: '不可达', degraded: '部分异常', ok: '运行正常' };
 
-      function renderSummary(snapshot) {
-        const controller = snapshot.controller || {};
-        const traffic = snapshot.traffic || {};
-        const issues = Array.isArray(snapshot.issues) ? snapshot.issues : [];
-        const trafficReady = snapshot.status !== 'offline' && !issues.includes('连接统计读取失败');
-        const status = snapshot.status === 'ok' ? 'ok' : snapshot.status === 'offline' ? 'error' : 'degraded';
-        byId('statusDot').className = `dot ${status}`;
-        byId('statusValue').classList.remove('skeleton');
-        byId('statusValue').textContent = !controller.reachable ? '不可达' : status === 'ok' ? '运行正常' : '部分异常';
-        byId('statusNote').textContent = controller.version ? `Mihomo ${controller.version}` : '未读取到版本';
-        byId('connectionsValue').classList.remove('skeleton');
-        byId('connectionsValue').textContent = trafficReady ? Number(traffic.connections || 0).toLocaleString() : '—';
-        byId('latencyValue').classList.remove('skeleton');
-        byId('latencyValue').textContent = `${Number(controller.latency_ms || 0)} ms`;
+  const state = {
+    busy: false,
+    queued: false,
+    needsAuth: false,
+    hadSession: false,
+    authReason: 'first',
+    paused: false,
+    snapshot: null,
+    loadedAt: 0,
+    gen: 0,
+    requestSeq: 0,
+    timer: 0,
+    drafts: new Map(),
+    queries: new Map(),
+    switchOpen: new Map(),
+    confirm: null,
+    pending: null,
+    feedback: new Map(),
+    switching: false,
+    previousTotals: null,
+    trafficRates: null,
+    connectionMetrics: null,
+    rates: new Map(),
+    lastObserved: 0,
+    page: 1,
+    query: '',
+    sort: 'recent',
+    selectedId: null,
+    connectionError: false,
+    connectionsTruncated: false,
+    connections: [],
+    regions: new Map(),
+  };
 
-        const now = Date.parse(snapshot.observed_at) || Date.now();
-        let downloadRate = 0;
-        let uploadRate = 0;
-        if (state.previous) {
-          const seconds = Math.max(.2, (now - state.previous.time) / 1000);
-          downloadRate = Math.max(0, (Number(traffic.download_total || 0) - state.previous.download) / seconds);
-          uploadRate = Math.max(0, (Number(traffic.upload_total || 0) - state.previous.upload) / seconds);
-        }
-        state.previous = trafficReady ? { time: now, download: Number(traffic.download_total || 0), upload: Number(traffic.upload_total || 0) } : null;
-        byId('downloadValue').classList.remove('skeleton');
-        byId('uploadValue').classList.remove('skeleton');
-        byId('downloadValue').textContent = trafficReady ? formatBytes(downloadRate, '/s') : '—';
-        byId('uploadValue').textContent = trafficReady ? formatBytes(uploadRate, '/s') : '—';
-        byId('downloadTotal').textContent = trafficReady ? `累计 ${formatBytes(traffic.download_total)}` : '暂无数据';
-        byId('uploadTotal').textContent = trafficReady ? `累计 ${formatBytes(traffic.upload_total)}` : '暂无数据';
-        byId('refreshMeta').textContent = `更新于 ${new Date(now).toLocaleTimeString('zh-CN', { hour12: false })}`;
+  const byId = (id) => document.getElementById(id);
+  const mobileQuery = window.matchMedia('(max-width: 680px)');
+  const escapeHTML = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  const number = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
-        byId('notice').textContent = issues.join('；');
-        byId('notice').classList.toggle('show', issues.length > 0);
-      }
+  function formatBytes(value, suffix = '') {
+    let bytes = Math.max(0, number(value));
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    let unit = 0;
+    while (bytes >= 1024 && unit < units.length - 1) { bytes /= 1024; unit += 1; }
+    const digits = bytes >= 100 || unit === 0 ? 0 : bytes >= 10 ? 1 : 2;
+    return `${bytes.toFixed(digits)} ${units[unit]}${suffix}`;
+  }
 
-      function renderGroups(groups) {
-        const list = Array.isArray(groups) ? groups : [];
-        state.groups = list;
-        byId('groupCount').textContent = `${list.length} 个运行组`;
-        if (!list.length) {
-          byId('groups').innerHTML = '<div class="card empty">未读取到代理组</div>';
-          return;
-        }
-        byId('groups').innerHTML = list.map((group) => {
-          const healthy = Boolean(group.alive) || group.now === 'DIRECT';
-          const delay = Number(group.delay_ms || 0);
-          const options = Array.isArray(group.all) ? group.all : [];
-          const draft = state.groupChoices.get(group.name);
-          const choice = options.includes(draft) ? draft : group.now;
-          const feedback = state.groupFeedback.get(group.name);
-          const impact = group.name === 'AI代理7891' ? '<p class="group-feedback impact">CPA 使用此代理组；切换会改变后续请求的出口。</p>' : '';
-          const action = group.selectable ? `<div class="group-action"><select aria-label="${escapeHTML(group.name)}的出口" data-group="${escapeHTML(group.name)}">${options.map((name) => `<option value="${escapeHTML(name)}" ${choice === name ? 'selected' : ''}>${escapeHTML(name)}</option>`).join('')}</select><button class="button group-apply" type="button" data-group="${escapeHTML(group.name)}" ${choice === group.now || state.applying ? 'disabled' : ''}>应用</button></div>` : `<p class="group-feedback">${options.length < 2 ? '仅一个出口' : '只读'}</p>`;
-          return `<article class="card group"><div class="group-top"><span class="group-name" title="${escapeHTML(group.name)}">${escapeHTML(group.name)}</span><span class="badge ${healthy ? 'ok' : 'warn'}">${healthy ? '可用' : '待检查'}</span></div><div class="node" title="${escapeHTML(group.now || '未选择')}">${escapeHTML(group.now || '未选择')}</div><div class="group-foot"><span>${escapeHTML(group.type || 'Group')}</span><span>${delay > 0 ? `${delay} ms` : '暂无延迟'}</span></div>${impact}${action}${feedback ? `<p class="group-feedback ${feedback.error ? 'error' : ''}" role="status">${escapeHTML(feedback.text)}</p>` : ''}</article>`;
-        }).join('');
-      }
+  function clockTime(value) {
+    const time = Date.parse(value);
+    if (!Number.isFinite(time)) return '';
+    return new Date(time).toLocaleTimeString('zh-CN', { hour12: false });
+  }
 
-      async function applyGroup(groupName) {
-        const group = state.groups.find((item) => item.name === groupName);
-        const choice = state.groupChoices.get(groupName);
-        if (!group?.selectable || !group.all?.includes(choice) || choice === group.now || state.applying) return;
-        const impact = groupName === 'AI代理7891'
-          ? '这是 CPA 使用的代理组，切换会改变 CPA 后续请求的出口，并可能影响请求可用性。'
-          : '该组后续的新连接会使用所选出口。';
-        if (!window.confirm(`将 ${groupName} 从 ${group.now} 切换到 ${choice}？\n\n${impact}`)) return;
-        state.applying = true;
-        renderGroups(state.groups);
-        try {
-          const response = await fetch(SELECT_URL, {
-            method: 'PUT',
-            credentials: 'same-origin',
-            headers: {
-              ...(state.key ? { Authorization: `Bearer ${state.key}` } : {}),
-              'Content-Type': 'application/json',
-              'X-Mihomo-Monitor-Request': '1',
-            },
-            body: JSON.stringify({ group: groupName, name: choice }),
-          });
-          if (!response.ok) throw new Error(response.status === 409 ? '候选项已变化，请刷新后重试。' : response.status === 401 ? '登录已失效，请重新输入管理员密钥。' : '切换失败，请刷新确认当前出口。');
-          state.groupChoices.delete(groupName);
-          state.groupFeedback.set(groupName, { text: '已提交，正在同步当前出口。' });
-        } catch (error) {
-          state.groupFeedback.set(groupName, { text: error.message || '切换失败，请刷新确认当前出口。', error: true });
-        } finally {
-          state.applying = false;
-          renderGroups(state.groups);
-          if (!state.busy) await refresh();
-        }
-      }
+  function dateTime(value) {
+    const time = Date.parse(value);
+    if (!Number.isFinite(time)) return '';
+    return new Date(time).toLocaleString('zh-CN', { hour12: false });
+  }
 
-      function renderProviders(providers) {
-        const list = Array.isArray(providers) ? providers : [];
-        if (!list.length) {
-          byId('providers').innerHTML = '<div class="card empty">未读取到 Provider</div>';
-          return;
-        }
-        byId('providers').innerHTML = list.map((provider) => `<article class="card provider"><div><strong>${escapeHTML(provider.name)}</strong><small>${escapeHTML(provider.vehicle_type || provider.type || 'Provider')}${provider.updated_at ? ` · ${escapeHTML(new Date(provider.updated_at).toLocaleString('zh-CN', { hour12: false }))}` : ''}</small></div><div class="provider-count">${Number(provider.proxy_count || 0)}<small>节点</small></div></article>`).join('');
-      }
+  function durationText(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds} 秒前`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
+    return `${Math.floor(seconds / 86400)} 天前`;
+  }
 
-      function connectionRoute(connection) {
-        return Array.isArray(connection.chains) && connection.chains.length
-          ? connection.chains.join(' → ') : connection.rule || '未标记';
-      }
+  // Freshness is measured from the server-reported age plus local elapsed time,
+  // so a clock difference between the browser and the sidecar cannot distort it.
+  function freshnessText() {
+    const snapshot = state.snapshot;
+    if (!snapshot || !state.loadedAt) return '';
+    const ms = number(snapshot.age_ms) + (Date.now() - state.loadedAt);
+    const suffix = state.paused ? ' · 已暂停自动刷新' : '';
+    return `数据 ${durationText(ms)}${suffix}`;
+  }
 
-      function connectionAge(start) {
-        const seconds = (Date.now() - Date.parse(start)) / 1000;
-        if (!Number.isFinite(seconds) || seconds < 0) return '—';
-        if (seconds < 60) return `${Math.floor(seconds)} 秒`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟`;
-        return `${Math.floor(seconds / 3600)} 小时`;
-      }
+  function connectionAge(start) {
+    const time = Date.parse(start);
+    if (!Number.isFinite(time)) return '—';
+    const seconds = Math.max(0, (Date.now() - time) / 1000);
+    if (seconds < 60) return `${Math.floor(seconds)} 秒`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时`;
+    return `${Math.floor(seconds / 86400)} 天`;
+  }
 
-      function renderDetail() {
-        if (!state.selected) return;
-        const connection = state.connections.find((item) => item.id === state.selected.id);
-        const current = connection || state.selected;
-        if (connection) state.selected = connection;
-        const rates = state.rates.get(current.id) || { download: 0, upload: 0 };
-        byId('detailEnded').classList.toggle('show', !connection);
-        byId('detailTitle').textContent = current.host || current.destination || '连接详情';
-        byId('detailSubtitle').textContent = current.network?.toUpperCase() || '连接';
-        byId('detailStart').textContent = current.start
-          ? `${new Date(current.start).toLocaleString('zh-CN', { hour12: false })} · ${connectionAge(current.start)}` : '未知';
-        byId('detailHost').innerHTML = `${escapeHTML(current.host || current.destination || '未知')}<small>${escapeHTML(current.process || '未识别进程')}</small>`;
-        byId('detailRoute').innerHTML = `${escapeHTML(current.rule || '未标记规则')}<small>${escapeHTML(connectionRoute(current))}</small>`;
-        byId('detailTraffic').innerHTML = `↓ ${formatBytes(rates.download, '/s')} · ↑ ${formatBytes(rates.upload, '/s')}<small>累计 ↓ ${formatBytes(current.download)} · ↑ ${formatBytes(current.upload)}</small>`;
-        byId('detailFlow').innerHTML = `${escapeHTML(current.source || '未知来源')}<small>→ ${escapeHTML(current.destination || '未知目标')}</small>`;
-      }
+  function healthOf(value) {
+    return HEALTH[value] || HEALTH.unknown;
+  }
 
-      function renderConnections() {
-        const query = byId('connectionSearch').value.trim().toLocaleLowerCase();
-        const filtered = state.connections.filter((connection) =>
-          [connection.host, connection.process, connection.source, connection.destination, connection.rule, connectionRoute(connection)]
-            .some((value) => String(value || '').toLocaleLowerCase().includes(query)));
-        const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-        state.page = Math.min(state.page, pages);
-        byId('pageInfo').textContent = `${state.page} / ${pages}`;
-        byId('previousPage').disabled = state.page === 1;
-        byId('nextPage').disabled = state.page === pages;
-        byId('connectionCount').textContent = `${filtered.length} 条活动连接${state.connections.length === 200 ? ' · 最多显示 200 条' : ''}`;
-        const page = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
-        byId('connections').innerHTML = page.length ? page.map((connection) => {
-          const host = connection.host || connection.destination || '未知主机';
-          return `<button class="connection-row" type="button" data-id="${escapeHTML(connection.id)}" aria-label="查看 ${escapeHTML(host)} 的连接详情"><span><span class="connection-primary">${escapeHTML(host)}</span><span class="connection-secondary">${escapeHTML(connection.process || connection.source || connection.network || '连接')}</span></span><span class="connection-route" title="${escapeHTML(connectionRoute(connection))}">${escapeHTML(connectionRoute(connection))}</span><span class="connection-traffic"><span>↓ ${formatBytes(connection.download)}</span><span>↑ ${formatBytes(connection.upload)}</span></span><span class="connection-age">${connectionAge(connection.start)}</span></button>`;
-        }).join('') : `<div class="empty">${state.connectionError ? '连接统计暂不可用' : query ? '没有匹配的连接' : '当前没有活动连接'}</div>`;
-        renderDetail();
-      }
+  function healthBadge(health) {
+    const info = healthOf(health);
+    return `<span class="badge ${info.tone}">${escapeHTML(info.text)}</span>`;
+  }
 
-      function updateConnections(snapshot) {
-        const list = Array.isArray(snapshot.connections) ? snapshot.connections : [];
-        const now = Date.parse(snapshot.observed_at) || Date.now();
-        const previous = state.connectionMetrics;
-        const seconds = previous ? (now - previous.time) / 1000 : 0;
-        state.rates = new Map(list.map((connection) => {
-          const old = previous?.byId.get(connection.id);
-          return [connection.id, {
-            download: old && seconds > 0 ? Math.max(0, (connection.download - old.download) / seconds) : 0,
-            upload: old && seconds > 0 ? Math.max(0, (connection.upload - old.upload) / seconds) : 0,
-          }];
-        }));
-        if (!previous || now > previous.time) {
-          state.connectionMetrics = { time: now, byId: new Map(list.map((item) => [item.id, item])) };
-        }
-        state.connectionError = snapshot.status === 'offline' || (snapshot.issues || []).includes('连接统计读取失败');
-        state.connections = state.connectionError ? [] : list;
-        renderConnections();
-      }
+  // One compact description per exit, so nothing reads "未检测 · 未检测延迟 · 未检测".
+  function exitFacts(exit) {
+    if (!exit) return ['出口未知'];
+    const facts = [];
+    if (number(exit.delay_ms) > 0) facts.push(`${number(exit.delay_ms)} ms`);
+    if (exit.checked_at) facts.push(`检测于 ${clockTime(exit.checked_at)}`);
+    if (facts.length) return facts;
+    switch (String(exit.type || '').toLowerCase()) {
+      case 'direct': return ['直连，无需检测'];
+      case 'reject': return ['拒绝连接'];
+      default: return ['未检测'];
+    }
+  }
 
-      function showAuth(message) {
-        byId('authPanel').classList.add('show');
-        byId('logoutButton').hidden = true;
-        byId('notice').textContent = message || '需要登录才能读取监控数据。';
-        byId('notice').classList.add('show');
-      }
+  function choiceFacts(choice) {
+    if (!choice) return '';
+    const facts = [healthOf(choice.health).text];
+    if (number(choice.delay_ms) > 0) facts.push(`${number(choice.delay_ms)} ms`);
+    if (choice.checked_at) facts.push(`检测于 ${clockTime(choice.checked_at)}`);
+    return facts.join(' · ');
+  }
 
-      async function login(key, quiet = false) {
-        try {
-          const response = await fetch(SESSION_URL, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key }),
-          });
-          if (!response.ok) throw new Error(response.status === 401 ? '管理密钥无效。' : '登录失败，请稍后重试。');
-          state.key = '';
-          state.needsAuth = false;
-          state.needsRefresh = state.busy;
-          byId('adminKey').value = '';
-          byId('authPanel').classList.remove('show');
-          await refresh();
-        } catch (error) {
-          if (!quiet) showAuth(error?.message || '登录失败，请稍后重试。');
+  // The resolved exit is already the headline, so a single hop adds nothing.
+  // Only a selection that travels through another group is worth a line.
+  function chainSummary(group) {
+    const chain = Array.isArray(group.chain) ? group.chain : [];
+    if (chain.length < 2) return '';
+    if (group.exit && chain[0] === group.exit.name) return '';
+    return chain.map((name) => escapeHTML(name)).join(' → ');
+  }
+
+  // ---------- rendering helpers ----------
+
+  function controlKey(node) {
+    if (!node?.dataset) return '';
+    if (node.dataset.switchSelect !== undefined) return `select:${node.dataset.switchSelect}`;
+    if (node.dataset.switchFilter !== undefined) return `filter:${node.dataset.switchFilter}`;
+    if (node.dataset.groupApply !== undefined) return `apply:${node.dataset.groupApply}`;
+    return '';
+  }
+
+  function renderRegion(id, html) {
+    const node = byId(id);
+    if (!node) return;
+    if (state.regions.get(id) === html) return;
+    const active = document.activeElement;
+    const key = active && node.contains(active) ? controlKey(active) : '';
+    const keep = key
+      ? { key, start: active.selectionStart, end: active.selectionEnd, top: node.scrollTop }
+      : null;
+    state.regions.set(id, html);
+    node.innerHTML = html;
+    if (keep) {
+      const next = [...node.querySelectorAll('[data-switch-select], [data-switch-filter], [data-group-apply]')]
+        .find((candidate) => controlKey(candidate) === keep.key);
+      if (next) {
+        next.focus({ preventScroll: true });
+        if (keep.start !== null && keep.start !== undefined && next.setSelectionRange) {
+          try { next.setSelectionRange(keep.start, keep.end); } catch (error) { /* input type does not support it */ }
         }
       }
+      node.scrollTop = keep.top;
+    }
+  }
 
-      async function refresh() {
-        if (document.hidden || state.busy) return;
-        state.controller = new AbortController();
-        state.busy = true;
-        const requestKey = state.key;
-        setLoading(true);
-        try {
-          const response = await fetch(SNAPSHOT_URL, {
-            credentials: 'same-origin',
-            headers: {
-              ...(requestKey ? { Authorization: `Bearer ${requestKey}` } : {}),
-              Accept: 'application/json',
-            },
-            cache: 'no-store',
-            signal: state.controller.signal,
-          });
-          if (response.status === 401 || response.status === 403) {
-            if (state.key !== requestKey) return;
-            state.key = '';
-            state.needsAuth = true;
-            showAuth('登录已失效，请重新输入 Mihomo Monitor 管理密钥。');
-            return;
-          }
-          if (!response.ok) throw new Error(`监控接口返回 HTTP ${response.status}`);
-          const snapshot = await response.json();
-          byId('authPanel').classList.remove('show');
-          byId('logoutButton').hidden = false;
-          renderSummary(snapshot);
-          updateConnections(snapshot);
-          if (!state.applying) renderGroups(snapshot.status === 'offline' ? [] : snapshot.groups);
-          renderProviders(snapshot.status === 'offline' ? [] : snapshot.providers);
-        } catch (error) {
-          if (error?.name === 'AbortError') return;
-          byId('statusDot').className = 'dot error';
-          byId('statusValue').classList.remove('skeleton');
-          byId('statusValue').textContent = '读取失败';
-          byId('notice').textContent = error?.message || '无法读取 Mihomo 运行状态';
-          byId('notice').classList.add('show');
-        } finally {
-          state.busy = false;
-          setLoading(false);
-          if (state.needsRefresh || state.key !== requestKey) {
-            state.needsRefresh = false;
-            queueMicrotask(refresh);
-          }
-        }
+  // Filtering rewrites only the option list. Re-rendering the whole panel would
+  // replace the input the user is typing into, which breaks IME composition.
+  function switchOptionsHTML(group) {
+    const choices = Array.isArray(group.choices) ? group.choices : [];
+    const draft = state.drafts.get(group.name) || group.now || '';
+    const query = (state.queries.get(group.name) || '').trim().toLocaleLowerCase();
+    const visible = query ? choices.filter((choice) => choice.name.toLocaleLowerCase().includes(query)) : choices;
+    let options = visible;
+    if (draft && !visible.some((choice) => choice.name === draft)) {
+      const current = choices.find((choice) => choice.name === draft);
+      if (current) options = [current, ...visible];
+    }
+    if (!options.length) return '<option value="">没有匹配的候选</option>';
+    return options.map((choice) => `<option value="${escapeHTML(choice.name)}" ${choice.name === draft ? 'selected' : ''}>${escapeHTML(choice.name)} · ${escapeHTML(choiceFacts(choice))}</option>`).join('');
+  }
+
+  function refreshSwitchOptions(groupName) {
+    const group = groupNamed(groupName);
+    if (!group) return;
+    const select = [...document.querySelectorAll('[data-switch-select]')]
+      .find((node) => node.dataset.switchSelect === groupName);
+    if (select) select.innerHTML = switchOptionsHTML(group);
+  }
+
+  function setText(id, text) {
+    const node = byId(id);
+    if (node && node.textContent !== text) node.textContent = text;
+  }
+
+  function setClass(id, className) {
+    const node = byId(id);
+    if (node && node.className !== className) node.className = className;
+  }
+
+  function showNotice(message, tone = 'warn') {
+    const node = byId('notice');
+    if (!message) {
+      node.classList.remove('show');
+      node.textContent = '';
+      return;
+    }
+    node.textContent = message;
+    node.classList.toggle('error', tone === 'error');
+    node.classList.toggle('ok', tone === 'ok');
+    node.classList.add('show');
+  }
+
+  // ---------- status + stats ----------
+
+  function renderStatus(snapshot) {
+    const status = snapshot.status === 'ok' ? 'ok' : snapshot.status === 'offline' ? 'error' : 'degraded';
+    setClass('statusDot', `dot ${status}`);
+    setText('statusValue', STATUS_TEXT[snapshot.status] || '状态未知');
+    const version = snapshot.controller?.version ? `Mihomo ${snapshot.controller.version}` : '未读取到版本';
+    setText('statusNote', version);
+    setText('freshness', freshnessText());
+    setText('refreshMeta', snapshot.observed_at ? `更新于 ${clockTime(snapshot.observed_at)}` : '未获取到时间');
+  }
+
+  function renderStats(snapshot) {
+    const traffic = snapshot.traffic || {};
+    const issues = Array.isArray(snapshot.issues) ? snapshot.issues : [];
+    const trafficReady = snapshot.status !== 'offline' && !issues.includes('连接统计读取失败');
+    const observed = Date.parse(snapshot.observed_at) || 0;
+    // A repeated sample is the same measurement, not fresh evidence: keep the
+    // rate that was already derived from it instead of resetting it to zero.
+    const previous = state.previousTotals;
+    if (trafficReady && observed && (!previous || observed > previous.time)) {
+      if (previous) {
+        const seconds = (observed - previous.time) / 1000;
+        state.trafficRates = {
+          download: Math.max(0, (number(traffic.download_total) - previous.download) / seconds),
+          upload: Math.max(0, (number(traffic.upload_total) - previous.upload) / seconds),
+        };
       }
+      state.previousTotals = { time: observed, download: number(traffic.download_total), upload: number(traffic.upload_total) };
+    } else if (!trafficReady) {
+      state.previousTotals = null;
+      state.trafficRates = null;
+    }
+    const downloadRate = trafficReady ? number(state.trafficRates?.download) : 0;
+    const uploadRate = trafficReady ? number(state.trafficRates?.upload) : 0;
+    const rows = [
+      { label: '下载速度', value: trafficReady ? formatBytes(downloadRate, '/s') : '—', note: trafficReady ? `累计 ${formatBytes(traffic.download_total)}` : '暂无数据' },
+      { label: '上传速度', value: trafficReady ? formatBytes(uploadRate, '/s') : '—', note: trafficReady ? `累计 ${formatBytes(traffic.upload_total)}` : '暂无数据' },
+      { label: '活动连接', value: trafficReady ? number(traffic.connections).toLocaleString() : '—', note: trafficReady ? (snapshot.connections_truncated ? '明细有裁剪' : '当前连接数量') : '暂无数据' },
+      { label: '采集耗时', value: `${number(snapshot.collect_ms)} ms`, note: '一次完整读取' },
+    ];
+    renderRegion('stats', rows.map((row) => `<div class="stat"><dt>${escapeHTML(row.label)}</dt><dd>${escapeHTML(row.value)}<small>${escapeHTML(row.note)}</small></dd></div>`).join(''));
+  }
 
-      byId('refreshButton').addEventListener('click', refresh);
-      byId('groups').addEventListener('change', (event) => {
-        if (!event.target.matches('select[data-group]')) return;
-        state.groupChoices.set(event.target.dataset.group, event.target.value);
-        state.groupFeedback.delete(event.target.dataset.group);
-        renderGroups(state.groups);
-      });
-      byId('groups').addEventListener('click', (event) => {
-        const button = event.target.closest('.group-apply');
-        if (button) applyGroup(button.dataset.group);
-      });
-      document.querySelectorAll('.view-tab').forEach((tab) => tab.addEventListener('click', () => {
-        document.querySelectorAll('.view-tab').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
-        document.querySelectorAll('.view').forEach((view) => { view.hidden = view.id !== tab.dataset.view; });
+  // ---------- exit panel ----------
+
+  function primaryGroup(snapshot) {
+    const groups = Array.isArray(snapshot.groups) ? snapshot.groups : [];
+    return groups.find((group) => group.primary && group.selectable) || groups.find((group) => group.selectable) || null;
+  }
+
+  function groupNamed(name) {
+    return (state.snapshot?.groups || []).find((group) => group.name === name) || null;
+  }
+
+  function switchControl(group) {
+    const choices = Array.isArray(group.choices) ? group.choices : [];
+    if (!group.selectable || choices.length < 2) return '';
+    const draft = state.drafts.get(group.name) || group.now || '';
+    const query = state.queries.get(group.name) || '';
+    const confirming = state.confirm && state.confirm.group === group.name;
+    const disabled = state.switching || !draft || draft === group.now;
+    const filter = choices.length > SWITCH_FILTER_THRESHOLD
+      ? `<div class="field"><label for="switch-filter-${escapeHTML(group.name)}">筛选候选</label><input class="control" id="switch-filter-${escapeHTML(group.name)}" data-switch-filter="${escapeHTML(group.name)}" type="search" autocomplete="off" value="${escapeHTML(query)}" placeholder="输入节点名筛选"></div>`
+      : '';
+    const draftInfo = choices.find((choice) => choice.name === draft);
+    const pending = state.pending && state.pending.group === group.name;
+    return `<div class="group-action" data-action-group="${escapeHTML(group.name)}">
+      ${filter}
+      <div class="field"><label for="switch-select-${escapeHTML(group.name)}">切换目标</label>
+        <select class="control" id="switch-select-${escapeHTML(group.name)}" data-switch-select="${escapeHTML(group.name)}">${switchOptionsHTML(group)}</select>
+      </div>
+      ${draftInfo ? `<p class="feedback">目标：${escapeHTML(choiceFacts(draftInfo))}</p>` : ''}
+      ${confirming ? `<div class="confirm-row"><p>确认把 ${escapeHTML(group.name)} 切到 <strong>${escapeHTML(state.confirm.name)}</strong>？</p><button class="button primary" type="button" data-confirm-switch="${escapeHTML(group.name)}" ${state.switching ? 'disabled' : ''}>确认切换</button><button class="button" type="button" data-cancel-switch="1">取消</button></div>`
+        : `<button class="button primary" type="button" data-group-apply="${escapeHTML(group.name)}" ${disabled || pending ? 'disabled' : ''}>切换到此节点</button>`}
+    </div>`;
+  }
+
+  function switchFeedback(group, snapshot) {
+    const message = state.feedback.get(group.name);
+    const parts = [];
+    if (message) parts.push(`<p class="feedback ${escapeHTML(message.tone || '')}" role="status">${escapeHTML(message.text)}</p>`);
+    const exit = group.exit && group.exit.name ? group.exit.name : group.now;
+    const others = connectionsUsing(exit, group.name, snapshot);
+    if (group.selectable && exit && others !== null) {
+      parts.push(`<p class="feedback">该组当前有 ${others} 条活动连接；切换只影响新建连接，本页面不会断开它们。</p>`);
+    }
+    return parts.join('');
+  }
+
+  function connectionsUsing(exitName, groupName, snapshot) {
+    if (!exitName || !snapshot) return null;
+    const connections = Array.isArray(snapshot.connections) ? snapshot.connections : [];
+    return connections.filter((connection) => {
+      const chains = Array.isArray(connection.chains) ? connection.chains : [];
+      return chains.includes(exitName) && chains.includes(groupName);
+    }).length;
+  }
+
+  function renderExit(snapshot) {
+    renderRegion('exitPanel', exitPanelHTML(snapshot));
+  }
+
+  function exitPanelHTML(snapshot) {
+    const group = primaryGroup(snapshot);
+    const offline = snapshot.status === 'offline';
+    if (!group || offline) {
+      const groups = Array.isArray(snapshot.groups) ? snapshot.groups : [];
+      const fallback = groups[0];
+      return `<div class="exit-main"><span class="eyebrow">当前出口</span>
+        <p class="exit-name">${escapeHTML(offline ? 'Controller 不可达' : fallback ? fallback.now || '未选择出口' : '未读取到代理组')}</p>
+        <p class="exit-meta">${escapeHTML(offline ? '先确认 Mihomo Controller 与网络连接' : '没有配置可切换的代理组，切换入口仅在允许手动选择的组上出现')}</p>
+      </div>`;
+    }
+    const exit = group.exit;
+    const chain = chainSummary(group);
+    return `
+      <div class="exit-main">
+        <span class="eyebrow">当前出口 ${healthBadge(group.health)}</span>
+        <p class="exit-name">${escapeHTML(exit?.name || group.now || '未选择出口')}</p>
+        <p class="exit-meta">
+          <span>${escapeHTML([group.name, group.type || 'Group'].join(' · '))}</span>
+          ${exitFacts(exit).map((fact) => `<span>${escapeHTML(fact)}</span>`).join('')}
+          <button class="button tiny copy-node" type="button" data-copy-value="${escapeHTML(exit?.name || group.now || '')}">复制节点名</button>
+        </p>
+        ${chain ? `<p class="exit-chain">转发链路：<code>${chain}</code></p>` : ''}
+      </div>
+      ${heroSwitch(group, snapshot)}`;
+  }
+
+  // On phones the switch control is a deliberate action rather than something to
+  // read at a glance, so it collapses and lets the connection list start sooner.
+  function heroSwitch(group, snapshot) {
+    const body = `<span class="eyebrow">切换 ${escapeHTML(group.name)}</span>
+        <p class="impact">只影响新建连接；已有连接不会被打断，继续使用原出口。</p>
+        ${switchControl(group)}
+        ${switchFeedback(group, snapshot)}`;
+    if (!mobileQuery.matches) return `<div class="exit-switch">${body}</div>`;
+    const open = state.switchOpen.get(group.name) ? ' open' : '';
+    return `<details class="exit-switch" data-switch-details="${escapeHTML(group.name)}"${open}><summary data-switch-summary="${escapeHTML(group.name)}">切换 ${escapeHTML(group.name)}</summary><div class="exit-switch-body">${body}</div></details>`;
+  }
+
+  // ---------- groups ----------
+
+  function groupCard(group, snapshot) {
+    const choices = Array.isArray(group.choices) ? group.choices : [];
+    const exit = group.exit;
+    const chain = chainSummary(group);
+    const note = group.selectable
+      ? (group.primary ? '<span class="badge info">主出口</span>' : '')
+      : (choices.length < 2 && group.type === 'Selector' ? '<span class="badge">仅一个出口</span>' : '<span class="badge">只读</span>');
+    const control = group.selectable && !group.primary ? `${switchControl(group)}${switchFeedback(group, snapshot)}` : '';
+    const adminNote = group.primary ? '<p class="feedback">主出口在页面上方切换。</p>' : '';
+    return `<article class="panel group${group.primary ? ' primary' : ''}">
+      <div class="group-top">
+        <span class="group-name">${escapeHTML(group.name)}</span>
+        <span class="group-top-badges">${note}${healthBadge(group.health)}</span>
+      </div>
+      <div>
+        <div class="group-exit">${escapeHTML(exit?.name || group.now || '未选择出口')}</div>
+        <div class="group-meta">
+          <span>${escapeHTML(group.type || 'Group')}</span>
+          ${exitFacts(exit).map((fact) => `<span>${escapeHTML(fact)}</span>`).join('')}
+        </div>
+        ${chain ? `<p class="exit-chain">转发链路：<code>${chain}</code></p>` : ''}
+      </div>
+      ${adminNote}${control}
+    </article>`;
+  }
+
+  function renderGroups(snapshot) {
+    const groups = snapshot.status === 'offline' ? [] : (Array.isArray(snapshot.groups) ? snapshot.groups : []);
+    setText('groupCount', groups.length ? `${groups.length} 个运行组` : '');
+    renderRegion('groups', groupsHTML(snapshot));
+  }
+
+  function groupsHTML(snapshot) {
+    const groups = snapshot.status === 'offline' ? [] : (Array.isArray(snapshot.groups) ? snapshot.groups : []);
+    if (!groups.length) {
+      return `<div class="panel empty"><p>未读取到代理组</p></div>`;
+    }
+    const ordered = groups.slice().sort((a, b) => Number(b.primary || 0) - Number(a.primary || 0));
+    return ordered.map((group) => groupCard(group, snapshot)).join('');
+  }
+
+  // ---------- providers ----------
+
+  function renderProviders(snapshot) {
+    const providers = snapshot.status === 'offline' ? [] : (Array.isArray(snapshot.providers) ? snapshot.providers : []);
+    setText('providerCount', providers.length ? `${providers.length} 个订阅` : '');
+    if (!providers.length) {
+      renderRegion('providers', `<div class="panel empty"><p>未读取到 Provider</p></div>`);
+      return;
+    }
+    renderRegion('providers', providers.map((provider) => {
+      const nodes = Array.isArray(provider.nodes) ? provider.nodes : [];
+      const counts = `共 ${number(provider.proxy_count)} 个节点 · 可用 ${number(provider.healthy_count)} · 异常 ${number(provider.down_count)} · 未检测 ${number(provider.unknown_count)}`;
+      const list = nodes.length
+        ? `<details><summary>查看节点（${nodes.length}${number(provider.proxy_count) > nodes.length ? ` / ${number(provider.proxy_count)}` : ''}）</summary><ul class="node-list">${nodes.map((node) => `<li><span class="node-name">${escapeHTML(node.name)}</span><span class="node-value">${escapeHTML(healthOf(node.health).text)}${number(node.delay_ms) > 0 ? ` · ${number(node.delay_ms)} ms` : ''}</span></li>`).join('')}</ul></details>`
+        : '';
+      return `<article class="panel provider">
+        <div class="provider-head"><strong>${escapeHTML(provider.name)}</strong><span class="badge">${escapeHTML(provider.vehicle_type || provider.type || 'Provider')}</span></div>
+        <div class="provider-meta"><span>${escapeHTML(counts)}</span>${provider.updated_at ? `<span>更新于 ${escapeHTML(dateTime(provider.updated_at))}</span>` : ''}</div>
+        ${list}
+      </article>`;
+    }).join(''));
+  }
+
+  // ---------- connections ----------
+
+  function connectionRoute(connection) {
+    return Array.isArray(connection.chains) && connection.chains.length
+      ? connection.chains.join(' → ')
+      : connection.rule || '未标记';
+  }
+
+  function filterConnections() {
+    const query = state.query.trim().toLocaleLowerCase();
+    const list = (state.connections || []).filter((connection) => !query ||
+      [connection.host, connection.process, connection.source, connection.destination, connection.rule, connectionRoute(connection)]
+        .some((value) => String(value || '').toLocaleLowerCase().includes(query)));
+    const sorted = list.slice();
+    if (state.sort === 'traffic') {
+      sorted.sort((a, b) => (number(b.download) + number(b.upload)) - (number(a.download) + number(a.upload)));
+    } else if (state.sort === 'host') {
+      sorted.sort((a, b) => String(a.host || a.destination || '').localeCompare(String(b.host || b.destination || ''), 'zh-CN'));
+    } else {
+      sorted.sort((a, b) => (Date.parse(b.start) || 0) - (Date.parse(a.start) || 0));
+    }
+    return sorted;
+  }
+
+  function renderConnections() {
+    const snapshot = state.snapshot || {};
+    const filtered = filterConnections();
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    state.page = Math.min(Math.max(1, state.page), pages);
+    setText('pageInfo', `${state.page} / ${pages}`);
+    const previous = byId('previousPage');
+    const next = byId('nextPage');
+    if (previous) previous.disabled = state.page === 1;
+    if (next) next.disabled = state.page === pages;
+    if (state.connectionError) {
+      setText('connectionCount', '连接统计不可用');
+    } else if (state.connectionsTruncated) {
+      setText('connectionCount', `${number(snapshot.traffic?.connections)} 条活动连接 · 仅列出最新 ${state.connections.length} 条明细`);
+    } else {
+      setText('connectionCount', `${filtered.length} 条活动连接`);
+    }
+    const page = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+    const html = page.length ? page.map((connection) => {
+      const host = connection.host || connection.destination || '未知主机';
+      const rates = state.rates.get(connection.id) || { download: 0, upload: 0 };
+      return `<button class="connection-row" type="button" data-id="${escapeHTML(connection.id)}" aria-label="查看 ${escapeHTML(host)} 的连接详情">
+        <span><span class="connection-primary">${escapeHTML(host)}</span><span class="connection-secondary">${escapeHTML(connection.process || connection.source || connection.network || '连接')}</span></span>
+        <span class="connection-route" title="${escapeHTML(connectionRoute(connection))}">${escapeHTML(connectionRoute(connection))}</span>
+        <span class="connection-traffic"><span>↓ ${formatBytes(connection.download)}${rates.download > 0 ? ` · ${formatBytes(rates.download, '/s')}` : ''}</span><span>↑ ${formatBytes(connection.upload)}${rates.upload > 0 ? ` · ${formatBytes(rates.upload, '/s')}` : ''}</span></span>
+        <span class="connection-age">${connectionAge(connection.start)}</span>
+      </button>`;
+    }).join('') : `<div class="empty"><p>${state.connectionError ? '连接统计暂不可用' : state.query ? '没有匹配的连接' : '当前没有活动连接'}</p></div>`;
+    renderRegion('connections', html);
+    renderDetail();
+  }
+
+  function updateConnections(snapshot) {
+    const list = Array.isArray(snapshot.connections) ? snapshot.connections : [];
+    const observed = Date.parse(snapshot.observed_at) || 0;
+    state.connectionError = snapshot.status === 'offline' || (snapshot.issues || []).includes('连接统计读取失败');
+    state.connectionsTruncated = Boolean(snapshot.connections_truncated);
+    state.connections = state.connectionError ? [] : list;
+    if (observed && observed !== state.lastObserved) {
+      const previous = state.connectionMetrics;
+      const seconds = previous ? (observed - previous.time) / 1000 : 0;
+      state.rates = new Map(list.map((connection) => {
+        const old = previous?.byId.get(connection.id);
+        return [connection.id, {
+          download: old && seconds > 0 ? Math.max(0, (number(connection.download) - old.download) / seconds) : 0,
+          upload: old && seconds > 0 ? Math.max(0, (number(connection.upload) - old.upload) / seconds) : 0,
+        }];
       }));
-      byId('connectionSearch').addEventListener('input', () => { state.page = 1; renderConnections(); });
-      byId('previousPage').addEventListener('click', () => { state.page -= 1; renderConnections(); });
-      byId('nextPage').addEventListener('click', () => { state.page += 1; renderConnections(); });
-      byId('connections').addEventListener('click', (event) => {
-        const row = event.target.closest('.connection-row');
-        if (!row) return;
-        state.selected = state.connections.find((item) => item.id === row.dataset.id) || null;
-        if (!state.selected) return;
-        renderDetail();
-        byId('detailBackdrop').hidden = false;
-        byId('detailClose').focus();
-      });
-      const closeDetail = () => {
-        const selectedId = state.selected?.id;
-        byId('detailBackdrop').hidden = true;
-        state.selected = null;
-        [...byId('connections').querySelectorAll('.connection-row')]
-          .find((row) => row.dataset.id === selectedId)?.focus();
-      };
-      byId('detailClose').addEventListener('click', closeDetail);
-      byId('detailBackdrop').addEventListener('click', (event) => { if (event.target === byId('detailBackdrop')) closeDetail(); });
-      document.addEventListener('keydown', (event) => {
-        if (byId('detailBackdrop').hidden) return;
-        if (event.key === 'Escape') closeDetail();
-        if (event.key === 'Tab') { event.preventDefault(); byId('detailClose').focus(); }
-      });
-      byId('authButton').addEventListener('click', () => {
-        const key = byId('adminKey').value.trim();
-        if (!key) return;
-        login(key);
-      });
-      byId('adminKey').addEventListener('keydown', (event) => { if (event.key === 'Enter') byId('authButton').click(); });
-      byId('logoutButton').addEventListener('click', async () => {
-        await fetch(SESSION_URL, {
-          method: 'DELETE', credentials: 'same-origin', headers: { 'X-Mihomo-Monitor-Request': '1' },
-        });
-        state.key = '';
-        state.needsAuth = true;
-        location.reload();
-      });
-      window.addEventListener('message', (event) => {
-        if (event.origin !== location.origin || event.source !== window.parent) return;
-        if (event.data?.type !== 'mihomo-monitor-auth' || typeof event.data.key !== 'string') return;
-        if (event.data.theme === 'dark' || event.data.theme === 'white') {
-          document.documentElement.dataset.theme = event.data.theme;
-        } else {
-          delete document.documentElement.dataset.theme;
-        }
-        login(event.data.key, true);
-      });
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-      state.timer = window.setInterval(refresh, 10000);
-      window.addEventListener('beforeunload', () => { clearInterval(state.timer); state.controller?.abort(); });
-      refresh();
-    })();
-  </script>
+      state.connectionMetrics = { time: observed, byId: new Map(list.map((item) => [item.id, item])) };
+      state.lastObserved = observed;
+    }
+    renderConnections();
+  }
+
+  // ---------- detail ----------
+
+  function openDetail(id) {
+    const connection = (state.connections || []).find((item) => item.id === id);
+    if (!connection) return;
+    state.selectedId = id;
+    byId('detailBackdrop').hidden = false;
+    renderDetail();
+    byId('detailClose').focus();
+  }
+
+  function closeDetail() {
+    const selected = state.selectedId;
+    byId('detailBackdrop').hidden = true;
+    state.selectedId = null;
+    const row = [...(byId('connections')?.querySelectorAll('.connection-row') || [])]
+      .find((candidate) => candidate.dataset.id === selected);
+    if (row) row.focus();
+  }
+
+  function renderDetail() {
+    const backdrop = byId('detailBackdrop');
+    if (backdrop.hidden) return;
+    const connection = (state.connections || []).find((item) => item.id === state.selectedId);
+    if (!connection) {
+      const stateNode = byId('detailState');
+      stateNode.hidden = false;
+      stateNode.textContent = state.connectionsTruncated
+        ? '这次采集只保留了部分连接明细，无法判断该连接是否已结束。'
+        : '该连接已不在最近一次采集中，视为已结束。以下为最后一次采集数据。';
+      stateNode.className = 'detail-state';
+      return;
+    }
+    byId('detailState').hidden = true;
+    const rates = state.rates.get(connection.id) || { download: 0, upload: 0 };
+    byId('detailTitle').textContent = connection.host || connection.destination || '连接详情';
+    byId('detailSubtitle').textContent = `${(connection.network || '连接').toUpperCase()} · ${connection.process || '未识别进程'}`;
+    byId('detailStart').textContent = connection.start ? `${dateTime(connection.start)} · ${connectionAge(connection.start)}` : '未知';
+    byId('detailHost').innerHTML = `${escapeHTML(connection.host || connection.destination || '未知')}<small>${escapeHTML(connection.process || '未识别进程')}</small>`;
+    byId('detailRoute').innerHTML = `${escapeHTML(connection.rule || '未标记规则')}<small>${escapeHTML(connectionRoute(connection))}</small>`;
+    byId('detailTraffic').innerHTML = `↓ ${formatBytes(rates.download, '/s')} · ↑ ${formatBytes(rates.upload, '/s')}<small>累计 ↓ ${formatBytes(connection.download)} · ↑ ${formatBytes(connection.upload)}</small>`;
+    byId('detailFlow').innerHTML = `${escapeHTML(connection.source || '未知来源')}<small>→ ${escapeHTML(connection.destination || '未知目标')}</small>`;
+  }
+
+  function copyPayload(key) {
+    const connection = (state.connections || []).find((item) => item.id === state.selectedId);
+    if (!connection) return '';
+    switch (key) {
+      case 'host': return connection.host || connection.destination || '';
+      case 'route': return connectionRoute(connection);
+      case 'flow': return `${connection.source || ''} → ${connection.destination || ''}`;
+      case 'traffic': return `↓ ${formatBytes(connection.download)} · ↑ ${formatBytes(connection.upload)}`;
+      default: return '';
+    }
+  }
+
+  async function copyText(text) {
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        showNotice('已复制到剪贴板。', 'ok');
+        return;
+      }
+    } catch (error) { /* fall through to the selection fallback */ }
+    const scratch = document.createElement('textarea');
+    scratch.value = text;
+    scratch.setAttribute('readonly', 'readonly');
+    scratch.style.position = 'fixed';
+    scratch.style.opacity = '0';
+    document.body.appendChild(scratch);
+    scratch.select();
+    let copied = false;
+    try { copied = document.execCommand('copy'); } catch (error) { copied = false; }
+    scratch.remove();
+    showNotice(copied ? '已复制到剪贴板。' : '无法自动复制，请手动选择文本。', copied ? 'ok' : 'warn');
+  }
+
+  // ---------- auth ----------
+
+  // Signed-in state drives exactly one set of visibility flags. Keeping them in
+  // a single place is what stops the panel from coming back blank after a login.
+  function applyAuthVisibility(signedIn) {
+    byId('authPanel').classList.toggle('show', !signedIn);
+    byId('dataRegion').hidden = !signedIn;
+    byId('logoutButton').hidden = !signedIn;
+    byId('pauseButton').hidden = !signedIn;
+    byId('refreshButton').hidden = !signedIn;
+    if (signedIn) {
+      byId('authError').classList.remove('show');
+      return;
+    }
+    // Nothing from the signed-in view may sit on top of the sign-in card: the
+    // detail drawer is an overlay outside #dataRegion, and a stale warning
+    // belongs to data that is no longer on screen.
+    byId('detailBackdrop').hidden = true;
+    state.selectedId = null;
+    showNotice('');
+  }
+
+  function showAuth(reason) {
+    state.needsAuth = true;
+    state.authReason = reason;
+    applyAuthVisibility(false);
+    setText('statusValue', '需要登录');
+    setText('statusNote', '');
+    setText('freshness', '');
+    setClass('statusDot', 'dot');
+    byId('authHint').textContent = reason === 'expired'
+      ? '会话已过期，请重新输入管理密钥。旧数据已隐藏，避免把过期状态当成当前状态。'
+      : '管理密钥只用于建立 12 小时会话，浏览器不会保存明文密钥。';
+    setLoading(false);
+    refreshMetaIdle();
+    byId('adminKey').focus();
+  }
+
+  function refreshMetaIdle() {
+    setText('refreshMeta', state.paused ? '已暂停自动刷新' : '');
+  }
+
+  function authSucceeded() {
+    state.needsAuth = false;
+    state.hadSession = true;
+    applyAuthVisibility(true);
+  }
+
+  function showAuthError(message) {
+    const node = byId('authError');
+    node.textContent = message;
+    node.classList.add('show');
+  }
+
+  async function login(key, quiet = false) {
+    try {
+      const response = await fetchWithTimeout(SESSION_URL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      }, REQUEST_TIMEOUT_MS);
+      if (!response.ok) {
+        throw new Error(response.status === 401 ? '管理密钥无效。' : `登录失败（HTTP ${response.status}）。`);
+      }
+      byId('adminKey').value = '';
+      authSucceeded();
+      showNotice('');
+      state.gen += 1;
+      await refresh({ force: true });
+    } catch (error) {
+      if (quiet) {
+        showAuth('expired');
+        showAuthError(error?.message || '登录失败，请稍后重试。');
+        return;
+      }
+      showAuthError(error?.message || '登录失败，请稍后重试。');
+    }
+  }
+
+  async function logout() {
+    try {
+      const response = await fetchWithTimeout(SESSION_URL, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'X-Mihomo-Monitor-Request': '1' },
+      }, REQUEST_TIMEOUT_MS);
+      if (!response.ok) throw new Error(`退出请求返回 HTTP ${response.status}`);
+    } catch (error) {
+      showNotice(`未能确认退出：${error?.message || '请求失败'}。页面保持当前会话，可再试一次。`, 'error');
+      return;
+    }
+    location.reload();
+  }
+
+  // ---------- requests ----------
+
+  async function fetchWithTimeout(url, init, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const external = init?.signal;
+    const forward = () => controller.abort();
+    if (external) {
+      if (external.aborted) controller.abort();
+      else external.addEventListener('abort', forward, { once: true });
+    }
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      return response;
+    } catch (error) {
+      if (controller.signal.aborted && !(external && external.aborted)) {
+        const timeout = new Error('监控接口响应超时');
+        timeout.name = 'TimeoutError';
+        throw timeout;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      if (external) external.removeEventListener('abort', forward);
+    }
+  }
+
+  function setLoading(loading) {
+    const button = byId('refreshButton');
+    button.disabled = loading;
+    button.textContent = loading ? '刷新中…' : '立即刷新';
+  }
+
+  async function refresh(options = {}) {
+    if (state.needsAuth && !options.force) return;
+    if (document.hidden && !options.force) return;
+    if (state.busy) { state.queued = true; return; }
+    state.busy = true;
+    const sequence = ++state.requestSeq;
+    const generation = state.gen;
+    setLoading(true);
+    try {
+      const response = await fetchWithTimeout(SNAPSHOT_URL, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      }, REQUEST_TIMEOUT_MS);
+      if (response.status === 401 || response.status === 403) {
+        showAuth(state.hadSession ? 'expired' : 'first');
+        return;
+      }
+      if (!response.ok) throw new Error(`监控接口返回 HTTP ${response.status}`);
+      const snapshot = await response.json();
+      if (sequence !== state.requestSeq || generation !== state.gen) return;
+      authSucceeded();
+      state.snapshot = snapshot;
+      state.loadedAt = Date.now();
+      render(snapshot);
+      showNotice((snapshot.issues || []).join('；'));
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      if (sequence !== state.requestSeq || generation !== state.gen) return;
+      setClass('statusDot', 'dot error');
+      setText('statusValue', '读取失败');
+      setText('statusNote', '');
+      showNotice(error?.name === 'TimeoutError' ? '监控接口响应超时，已保留上一次数据。' : (error?.message || '无法读取 Mihomo 运行状态'), 'error');
+    } finally {
+      state.busy = false;
+      setLoading(false);
+      schedule();
+      if (state.queued) {
+        state.queued = false;
+        queueMicrotask(() => refresh({ force: true }));
+      }
+    }
+  }
+
+  function schedule() {
+    if (state.timer) {
+      clearTimeout(state.timer);
+      state.timer = 0;
+    }
+    if (state.paused || state.needsAuth || document.hidden) return;
+    state.timer = window.setTimeout(() => refresh(), POLL_INTERVAL_MS);
+  }
+
+  function render(snapshot) {
+    resolvePending(snapshot);
+    renderStatus(snapshot);
+    renderStats(snapshot);
+    renderExit(snapshot);
+    renderGroups(snapshot);
+    renderProviders(snapshot);
+    updateConnections(snapshot);
+  }
+
+  // ---------- switching ----------
+
+  function setFeedback(group, tone, text) {
+    state.feedback.set(group, { tone, text });
+  }
+
+  function resolvePending(snapshot) {
+    const pending = state.pending;
+    if (!pending) return;
+    const observed = Date.parse(snapshot.observed_at) || 0;
+    if (observed && observed === pending.observed) return;
+    pending.observed = observed;
+    const group = (snapshot.groups || []).find((item) => item.name === pending.group);
+    if (group && group.now === pending.name) {
+      setFeedback(pending.group, 'ok', `已切换：当前出口是 ${pending.name}。`);
+      state.pending = null;
+      state.drafts.delete(pending.group);
+      state.confirm = null;
+      return;
+    }
+    if (!group) {
+      if (pending.rounds > 1) {
+        setFeedback(pending.group, 'warn', '读回结果里没有这个代理组，无法确认切换是否生效。');
+        state.pending = null;
+      }
+      pending.rounds += 1;
+      return;
+    }
+    if (pending.rounds >= 1) {
+      setFeedback(pending.group, 'warn', `未能确认切换：当前出口仍显示 ${group.now || '未知'}。可再次尝试或稍后刷新。`);
+      state.pending = null;
+      return;
+    }
+    pending.rounds += 1;
+    setFeedback(pending.group, 'warn', `已提交切换到 ${pending.name}，正在读回当前出口…`);
+  }
+
+  async function applySwitch(groupName, name) {
+    if (state.switching || !groupName || !name) return;
+    state.switching = true;
+    state.confirm = null;
+    state.pending = { group: groupName, name, rounds: 0, observed: 0 };
+    setFeedback(groupName, 'warn', `已提交切换到 ${name}，正在读回当前出口…`);
+    renderRegions();
+    let uncertain = '';
+    try {
+      const response = await fetchWithTimeout(SELECT_URL, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Mihomo-Monitor-Request': '1',
+        },
+        body: JSON.stringify({ group: groupName, name }),
+      }, REQUEST_TIMEOUT_MS);
+      let payload = null;
+      try { payload = await response.json(); } catch (error) { payload = null; }
+      if (response.status === 401 || response.status === 403) {
+        showAuth('expired');
+        return;
+      }
+      if (payload?.status === 'rejected' || (!response.ok && response.status === 409)) {
+        state.pending = null;
+        setFeedback(groupName, 'error', rejectMessage(payload?.reason));
+      } else if (!response.ok && !payload) {
+        uncertain = `切换请求返回 HTTP ${response.status}`;
+      } else if (!response.ok) {
+        uncertain = `切换结果未确认（HTTP ${response.status}）`;
+      }
+    } catch (error) {
+      uncertain = error?.name === 'TimeoutError' ? '切换请求超时' : (error?.message || '切换请求失败');
+    } finally {
+      state.switching = false;
+      state.gen += 1;
+      if (uncertain && state.pending) {
+        setFeedback(groupName, 'warn', `${uncertain}；正在读回当前出口确认结果…`);
+      }
+      state.queued = false;
+      if (!state.needsAuth) await refresh({ force: true });
+    }
+  }
+
+  function rejectMessage(reason) {
+    switch (reason) {
+      case 'choice-missing': return '该节点已不在候选中，请刷新后重试。';
+      case 'group-not-selectable': return '这个代理组不支持手动切换。';
+      case 'controller-rejected': return 'Controller 拒绝了这次切换。';
+      default: return '切换失败。';
+    }
+  }
+
+  function renderRegions() {
+    if (!state.snapshot) return;
+    renderExit(state.snapshot);
+    renderGroups(state.snapshot);
+  }
+
+  // ---------- views ----------
+
+  function selectView(view) {
+    document.querySelectorAll('.view-tab').forEach((tab) => {
+      const active = tab.dataset.view === view;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll('.view').forEach((panel) => { panel.hidden = panel.id !== view; });
+  }
+
+  // ---------- events ----------
+
+  byId('refreshButton').addEventListener('click', () => refresh({ force: true }));
+
+  byId('pauseButton').addEventListener('click', () => {
+    state.paused = !state.paused;
+    const button = byId('pauseButton');
+    button.textContent = state.paused ? '继续刷新' : '暂停刷新';
+    button.setAttribute('aria-pressed', String(state.paused));
+    if (state.paused) {
+      if (state.timer) { clearTimeout(state.timer); state.timer = 0; }
+    } else {
+      schedule();
+      refresh({ force: true });
+    }
+    if (state.snapshot) renderStatus(state.snapshot);
+  });
+
+  byId('logoutButton').addEventListener('click', logout);
+
+  byId('authForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const key = byId('adminKey').value.trim();
+    if (!key) {
+      showAuthError('请输入管理密钥。');
+      return;
+    }
+    login(key);
+  });
+
+  byId('viewTabs').addEventListener('click', (event) => {
+    const tab = event.target.closest('.view-tab');
+    if (tab) selectView(tab.dataset.view);
+  });
+
+  byId('viewTabs').addEventListener('keydown', (event) => {
+    const tabs = [...byId('viewTabs').querySelectorAll('.view-tab')];
+    const index = tabs.indexOf(document.activeElement);
+    if (index < 0) return;
+    let next = null;
+    if (event.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+    else if (event.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+    else if (event.key === 'Home') next = tabs[0];
+    else if (event.key === 'End') next = tabs[tabs.length - 1];
+    if (!next) return;
+    event.preventDefault();
+    selectView(next.dataset.view);
+    next.focus();
+  });
+
+  byId('connectionSearch').addEventListener('input', (event) => {
+    state.query = event.target.value;
+    state.page = 1;
+    renderConnections();
+  });
+
+  byId('connectionSort').addEventListener('change', (event) => {
+    state.sort = event.target.value;
+    state.page = 1;
+    renderConnections();
+  });
+
+  byId('previousPage').addEventListener('click', () => { state.page -= 1; renderConnections(); });
+  byId('nextPage').addEventListener('click', () => { state.page += 1; renderConnections(); });
+
+  byId('connections').addEventListener('click', (event) => {
+    const row = event.target.closest('.connection-row');
+    if (row) openDetail(row.dataset.id);
+  });
+
+  byId('detailClose').addEventListener('click', closeDetail);
+  byId('detailBackdrop').addEventListener('click', (event) => { if (event.target === byId('detailBackdrop')) closeDetail(); });
+  document.addEventListener('keydown', (event) => {
+    if (byId('detailBackdrop').hidden) return;
+    if (event.key === 'Escape') closeDetail();
+    if (event.key === 'Tab') {
+      const focusable = [...byId('detailBackdrop').querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((node) => !node.hidden && node.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  });
+  byId('detailBackdrop').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-copy]');
+    if (!button) return;
+    copyText(copyPayload(button.dataset.copy));
+  });
+
+  document.addEventListener('input', (event) => {
+    const filter = event.target.closest('[data-switch-filter]');
+    if (!filter) return;
+    const group = filter.dataset.switchFilter;
+    state.queries.set(group, filter.value);
+    refreshSwitchOptions(group);
+    // Keep the render memo in step with the DOM we just edited, so the next
+    // data refresh does not needlessly rebuild this panel.
+    if (state.snapshot) {
+      state.regions.set('exitPanel', exitPanelHTML(state.snapshot));
+      state.regions.set('groups', groupsHTML(state.snapshot));
+    }
+  });
+
+  document.addEventListener('change', (event) => {
+    const select = event.target.closest('[data-switch-select]');
+    if (!select) return;
+    state.drafts.set(select.dataset.switchSelect, select.value);
+    state.confirm = null;
+    state.feedback.delete(select.dataset.switchSelect);
+    renderRegions();
+  });
+
+  document.addEventListener('click', (event) => {
+    const summary = event.target.closest('[data-switch-summary]');
+    if (summary) {
+      event.preventDefault();
+      const group = summary.dataset.switchSummary;
+      state.switchOpen.set(group, !state.switchOpen.get(group));
+      renderRegions();
+      return;
+    }
+    const copyValue = event.target.closest('[data-copy-value]');
+    if (copyValue) { copyText(copyValue.dataset.copyValue); return; }
+    const apply = event.target.closest('[data-group-apply]');
+    if (apply) {
+      const group = apply.dataset.groupApply;
+      const draft = state.drafts.get(group);
+      if (!group || !draft) return;
+      state.confirm = { group, name: draft };
+      renderRegions();
+      const confirmButton = [...document.querySelectorAll('[data-confirm-switch]')]
+        .find((button) => button.dataset.confirmSwitch === group);
+      if (confirmButton) confirmButton.focus();
+      return;
+    }
+    const confirm = event.target.closest('[data-confirm-switch]');
+    if (confirm) {
+      const target = state.confirm;
+      if (target && target.group === confirm.dataset.confirmSwitch) applySwitch(target.group, target.name);
+      return;
+    }
+    if (event.target.closest('[data-cancel-switch]')) {
+      const cancelled = state.confirm?.group;
+      state.confirm = null;
+      renderRegions();
+      if (cancelled) {
+        [...document.querySelectorAll('[data-group-apply]')]
+          .find((button) => button.dataset.groupApply === cancelled)?.focus();
+      }
+    }
+  });
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || event.source !== window.parent) return;
+    if (event.data?.type !== 'mihomo-monitor-auth' || typeof event.data.key !== 'string') return;
+    if (event.data.theme === 'dark' || event.data.theme === 'white') {
+      document.documentElement.dataset.theme = event.data.theme;
+    } else {
+      delete document.documentElement.dataset.theme;
+    }
+    login(event.data.key, true);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refresh();
+  });
+
+  mobileQuery.addEventListener('change', () => { renderRegions(); });
+
+  window.addEventListener('beforeunload', () => {
+    clearTimeout(state.timer);
+    state.requestSeq += 1;
+  });
+
+  setInterval(() => {
+    if (state.needsAuth || !state.loadedAt) return;
+    setText('freshness', freshnessText());
+  }, 1000);
+
+  refresh({ force: true });
+})();
+</script>
 </body>
 </html>
